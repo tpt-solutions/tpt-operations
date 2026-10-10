@@ -1,0 +1,122 @@
+Design Spec: tpt-operations (Layer 2)
+1. Mission & Scope
+Mission: To provide a unified, pure-Rust, deterministic operation and command modeling engine. It standardizes how state mutations are defined, validated, applied, inverted (undo/redo), and serialized across the TPT ecosystem, enabling seamless event sourcing, audit trails, and CRDT-based real-time collaboration.
+Scope:
+In Scope: Core Operation and State traits, atomic operation batching, automatic inverse generation (undo), deterministic replay/event sourcing, and CRDT-compatibility markers (commutativity, associativity, idempotency).
+Out of Scope: The actual UI undo-stack implementation (handled by frontend crates), the physical database storage layer (handled by downstream persistence crates), and raw CRDT conflict resolution algorithms (this crate provides the compatible operations, not the merge logic itself).
+2. Core Constraints & Architecture
+Zero C-FFI: 100% Pure Rust.
+no_std + alloc Capable: Operations must be lightweight and serializable. The core application logic must run in no_std environments (e.g., tpt-l-riscv embedded controllers or tpt-pwa WASM).
+Deterministic & Reversible: Applying an operation and then its inverse must return the state to a byte-for-byte identical condition. This is non-negotiable for CAD (tpt-vertex) and Spreadsheets (tpt-lattice).
+Cryptographically Bindable: Operations must be easily signable (via tpt-crypto) to provide non-repudiation in collaborative environments.
+The Dependency Map
+Serialization: tpt-uir (Operations are serialized as IR nodes for network transmission and storage).
+Identity & Auth: tpt-primitives (Operations carry ActorId and Capability tokens to prove the actor was allowed to perform the action).
+Testing: tpt-testkit (For deterministic replay and property-based commutativity testing).
+3. Core Modules & API Design
+Module A: tpt_operations::core (The Fundamental Traits)
+The bedrock of the crate. Every mutation in the TPT ecosystem must implement these traits.
+State Trait: The data being mutated. Must be Clone and support merging.
+Operation Trait: Defines how to mutate the state, how to validate the mutation, and how to reverse it.
+Key Traits:
+
+pub trait State: Clone + Sized {
+    fn apply(&mut self, op: &impl Operation<Self>) -> Result<(), OpError>;
+}
+
+pub trait Operation<S: State> {
+    // The core mutation logic
+    fn apply(&self, state: &mut S) -> Result<(), OpError>;
+    
+    // Generate the exact inverse operation (for Undo)
+    fn inverse(&self, state: &S) -> Result<Self, OpError> where Self: Sized;
+    
+    // Pre-application validation (e.g., checking bounds, capabilities)
+    fn validate(&self, state: &S, actor: &ActorId) -> Result<(), OpError>;
+}
+
+Module B: tpt_operations::derive (Ergonomic Macros)
+Writing inverse logic manually is error-prone. This module provides derive macros to automate it.
+#[derive(Operation)]: Automatically generates the apply, inverse, and validate stubs for simple operations.
+Field-Level Annotations:
+#[tpt(inverse = "Add { amount: -self.amount }")]
+#[tpt(ignore)] (For metadata fields that don't affect state inversion).
+Example:
+
+#[derive(Operation, Serialize, Deserialize)]
+pub struct MoveCadVertex {
+    pub vertex_id: UuidV7,
+    pub delta_x: f32,
+    pub delta_y: f32,
+    pub delta_z: f32,
+}
+// The macro automatically generates an inverse that applies `-delta_x`, `-delta_y`, `-deltaz`.
+
+Module C: tpt_operations::compose (Batching & Atomicity)
+Complex actions (e.g., "Paste" in a spreadsheet, or "Extrude" in CAD) are rarely a single operation. They are batches.
+OperationBatch: A collection of operations that must be applied atomically. If one fails validation or application, the entire batch is rolled back (using the inverses of the already-applied operations).
+Macros: tpt_batch! for ergonomic grouping of operations in application code.
+Module D: tpt_operations::crdt (Collaboration Markers)
+For tpt-vertex and tpt-lattice to support real-time multi-user editing, operations must have specific mathematical properties. This module provides traits to declare and verify these properties.
+Commutative: apply(A).apply(B) == apply(B).apply(A). (Crucial for out-of-order network delivery).
+Associative: (apply(A).apply(B)).apply(C) == apply(A).(apply(B).apply(C)).
+Idempotent: apply(A).apply(A) == apply(A). (Crucial for handling duplicate network packets).
+Key Trait:
+
+pub trait CrdtCompatible: Operation {
+    const IS_COMMUTATIVE: bool;
+    const IS_ASSOCIATIVE: bool;
+    const IS_IDEMPOTENT: bool;
+}
+
+Module E: tpt_operations::history (Undo/Redo & Replay)
+The engine that manages the timeline of a document or application state.
+HistoryStack: Maintains the applied and inverted operation queues. Handles memory limits (e.g., capping undo history at 10,000 operations or 50MB).
+ReplayEngine: Takes an initial empty state and a stream of serialized operations (from tpt-uir), and deterministically reconstructs the final state. This is the foundation of Event Sourcing in the TPT stack.
+4. The Processing Pipeline (The "Action" Flow)
+How a user action becomes a verified, reversible, and synced state change:
+Intent: User performs an action in tpt-vertex (e.g., moves a vertex).
+Creation: The UI creates a MoveCadVertex operation, attaching the ActorId and a Capability token (from tpt-primitives).
+Validation: op.validate(&state, &actor) is called. Checks if the actor has write access and if the move is within physical bounds.
+Application: op.apply(&mut state) mutates the local state.
+Inverse Generation: op.inverse(&old_state) is immediately calculated and pushed to the local HistoryStack for Undo.
+Serialization: The operation is converted to a tpt-uir node.
+Signing (Optional): The IR node is hashed and signed via tpt-crypto for the audit log (tpt-concord).
+Broadcast: The signed IR node is sent to the CRDT sync engine or saved to the database.
+5. Integration with the TPT Ecosystem
+tpt-vertex (CAD): Uses OperationBatch for complex modeling actions (e.g., "Fillet Edge" might be 50 underlying vertex/edge operations). Uses crdt::Commutative markers so two users editing different parts of the model simultaneously don't cause merge conflicts.
+tpt-lattice (Spreadsheets): Cell updates are strictly Idempotent and Commutative. If User A and User B edit the same cell, the CRDT layer uses the operation timestamps and these traits to resolve the final state deterministically.
+tpt-doc (Documents): Uses HistoryStack to provide a flawless, multi-level Undo/Redo experience for text and layout changes, backed by tpt-text.
+tpt-concord (Compliance): The ReplayEngine allows auditors to take a document's operation log and mathematically prove how it reached its current state, satisfying strict regulatory requirements (e.g., in tpt-medical or tpt-chemistry).
+6. Testing & Quality Strategy
+Property-Based Reversibility Testing: Using tpt-testkit::property, we will generate millions of random states and random operations. The test will assert: state == apply(inverse(state), state). If this ever fails, the crate fails to build.
+Commutativity Testing: For operations marked as CRDT-compatible, the test suite will randomly shuffle the order of operation application and assert the final state hash is identical.
+Deterministic Replay Golden Files: A complex sequence of 1,000 operations is serialized to a golden file. The ReplayEngine must reconstruct the exact same final state on Linux, macOS, and Windows.
+7. Roadmap & Milestones
+Phase 1: Core Traits & Derive Macros (Weeks 1-3)
+Define State and Operation traits.
+Implement #[derive(Operation)] with automatic inverse generation for basic types.
+Milestone: Developers can define and apply simple, reversible operations with minimal boilerplate.
+Phase 2: History & Batching (Weeks 4-5)
+Implement OperationBatch with atomic rollback on failure.
+Build the HistoryStack with memory-aware capping.
+Milestone: tpt-doc can integrate a robust, multi-level Undo/Redo system.
+Phase 3: CRDT Compatibility & Replay (Weeks 6-8)
+Define and implement the CrdtCompatible marker traits.
+Build the ReplayEngine for event-sourced state reconstruction.
+Milestone: tpt-lattice and tpt-vertex can safely use these operations for real-time collaboration.
+Phase 4: Ecosystem Integration & Crypto (Weeks 9-10)
+Integrate tpt-primitives for capability-based validation.
+Integrate tpt-crypto for operation signing.
+Publish v1.0.0.
+Architect's Note
+The most common failure mode in operation-based systems is "Inverse Drift"—where the inverse operation doesn't perfectly restore the state due to floating-point inaccuracies or lost metadata.
+To prevent this, tpt-operations enforces a strict rule: The inverse is calculated against the pre-application state, not by guessing. For example, the inverse of "Set X to 5" is not "Set X to previous_value_guess", it is explicitly "Set X to state.x (captured before the operation ran)". This guarantees mathematical reversibility, which is the bedrock of trust in your entire ecosystem.
+Summary of the Layer 1 & Layer 2 Foundation
+You now have a complete, interlocking specification for the foundational layer of TPT Solutions:
+tpt-text: Pure-Rust, deterministic text shaping and layout.
+tpt-color: Pure-Rust, SIMD-accelerated color management and ICC parsing.
+tpt-testkit: The strict, automated quality and regression enforcement engine.
+tpt-model: The type-safe, evolving schema and migration engine.
+tpt-operations: The reversible, CRDT-compatible, auditable state mutation engine.
+Together, these 5 crates form an unbreakable substrate. They eliminate C-FFI risks, guarantee cross-platform determinism, and provide the exact tooling needed to build tpt-vertex, tpt-doc, and tpt-lattice at an enterprise, safety-critical level.
