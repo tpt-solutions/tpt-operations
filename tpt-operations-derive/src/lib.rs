@@ -18,6 +18,11 @@
 //!   Inverses are never written as expressions, so they cannot drift.
 //! - `validate` accepts every operation. Override it by writing the trait impl by hand.
 //! - `Inverse` is `Self`.
+//! - `#[tpt(commutative)]`, `#[tpt(associative)]` and `#[tpt(idempotent)]` on the
+//!   struct declare the matching `CrdtCompatible` markers. Each defaults to `false`.
+//!   Declare a marker only if it holds for every value of the type. Field-setting
+//!   ops are idempotent but not commutative in general, so they declare
+//!   `idempotent` only.
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -46,7 +51,12 @@ fn expand(input: &DeriveInput) -> Result<TokenStream2> {
         ));
     }
 
-    let state = state_type(input)?;
+    let (state, markers) = container_attrs(input)?;
+    let Markers {
+        commutative,
+        associative,
+        idempotent,
+    } = markers;
     let (is_unit, fields) = struct_fields(input)?;
     let name = &input.ident;
 
@@ -98,29 +108,56 @@ fn expand(input: &DeriveInput) -> Result<TokenStream2> {
                 ::core::result::Result::Ok(())
             }
         }
+
+        impl ::tpt_operations::crdt::CrdtCompatible<#state> for #name {
+            const IS_COMMUTATIVE: bool = #commutative;
+            const IS_ASSOCIATIVE: bool = #associative;
+            const IS_IDEMPOTENT: bool = #idempotent;
+        }
     })
 }
 
-/// Reads the required `#[tpt(state = Path)]` container attribute.
-fn state_type(input: &DeriveInput) -> Result<Type> {
+/// CRDT markers declared on the container. Each defaults to `false`, the conservative choice.
+#[derive(Default)]
+struct Markers {
+    commutative: bool,
+    associative: bool,
+    idempotent: bool,
+}
+
+/// Reads the container attributes: the required `state = Type` and the optional CRDT flags.
+fn container_attrs(input: &DeriveInput) -> Result<(Type, Markers)> {
     let mut state = None;
+    let mut markers = Markers::default();
     for attr in input.attrs.iter().filter(|a| a.path().is_ident("tpt")) {
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("state") {
                 let ty: Type = meta.value()?.parse()?;
                 state = Some(ty);
                 Ok(())
+            } else if meta.path.is_ident("commutative") {
+                markers.commutative = true;
+                Ok(())
+            } else if meta.path.is_ident("associative") {
+                markers.associative = true;
+                Ok(())
+            } else if meta.path.is_ident("idempotent") {
+                markers.idempotent = true;
+                Ok(())
             } else {
-                Err(meta.error("unknown container attribute; expected `state = Type`"))
+                Err(meta.error(
+                    "unknown container attribute; expected `state = Type`, `commutative`, `associative` or `idempotent`",
+                ))
             }
         })?;
     }
-    state.ok_or_else(|| {
+    let state = state.ok_or_else(|| {
         Error::new_spanned(
             &input.ident,
             "missing `#[tpt(state = Type)]` attribute for `Operation`",
         )
-    })
+    })?;
+    Ok((state, markers))
 }
 
 /// Returns whether the struct is a unit struct, plus its fields in declaration order.

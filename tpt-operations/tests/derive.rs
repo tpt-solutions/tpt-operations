@@ -129,3 +129,39 @@ fn derived_ops_work_with_batches_and_history() {
     history.redo(&mut state, &actor()).unwrap();
     assert_eq!(state, Vehicle { x: 2.0, y: 3.0 });
 }
+
+#[derive(Debug, Clone, PartialEq, Operation)]
+#[tpt(state = Vehicle, idempotent, associative)]
+pub struct Teleport {
+    pub x: f32,
+    pub y: f32,
+}
+
+#[test]
+fn declared_crdt_markers_are_emitted() {
+    use tpt_operations::crdt::CrdtCompatible;
+    const { assert!(<Teleport as CrdtCompatible<Vehicle>>::IS_IDEMPOTENT) };
+    const { assert!(<Teleport as CrdtCompatible<Vehicle>>::IS_ASSOCIATIVE) };
+    // Not declared, so the conservative default applies.
+    const { assert!(!<Teleport as CrdtCompatible<Vehicle>>::IS_COMMUTATIVE) };
+    const { assert!(!<MoveTo as CrdtCompatible<Vehicle>>::IS_IDEMPOTENT) };
+}
+
+#[test]
+fn declared_idempotence_holds_on_samples() {
+    use tpt_operations::crdt::check_idempotent;
+    let bases = [
+        Vehicle { x: 0.0, y: 0.0 },
+        Vehicle { x: -3.5, y: 9.25 },
+        Vehicle {
+            x: f32::MAX,
+            y: f32::MIN_POSITIVE,
+        },
+    ];
+    let samples = [Teleport { x: 1.0, y: 2.0 }, Teleport { x: -0.0, y: 1e-30 }];
+    for base in &bases {
+        for op in &samples {
+            assert!(check_idempotent(base, op));
+        }
+    }
+}

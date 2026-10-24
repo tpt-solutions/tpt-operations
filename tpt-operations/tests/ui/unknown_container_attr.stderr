@@ -1,4 +1,4 @@
-error: unknown container attribute; expected `state = Type`
+error: unknown container attribute; expected `state = Type`, `commutative`, `associative` or `idempotent`
  --> tests/ui/unknown_container_attr.rs:4:7
   |
 4 | #[tpt(stat = Counter)]
