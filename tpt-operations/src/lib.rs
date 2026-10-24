@@ -28,8 +28,12 @@ pub mod crdt;
 #[cfg(feature = "crypto")]
 pub mod crypto;
 pub mod history;
+#[cfg(feature = "crypto")]
+pub mod pipeline;
 #[cfg(feature = "primitives")]
 pub mod primitives;
+#[cfg(feature = "uir")]
+pub mod uir;
 
 #[cfg(test)]
 mod property_tests;

@@ -27,3 +27,9 @@ deny = [
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
+# The project's own sibling crates, pinned by commit in Cargo.toml.
+allow-git = [
+    "https://github.com/tpt-solutions/tpt-crypto",
+    "https://github.com/tpt-solutions/tpt-primitives",
+    "https://github.com/tpt-solutions/tpt-replicate",
+]

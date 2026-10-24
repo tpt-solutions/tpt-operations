@@ -478,6 +478,7 @@ dependencies = [
  "tpt-crypto-sig",
  "tpt-operations-derive",
  "tpt-primitives",
+ "tpt-replicate",
  "trybuild",
 ]
 
@@ -500,6 +501,11 @@ dependencies = [
  "serde",
  "sha2",
 ]
+
+[[package]]
+name = "tpt-replicate"
+version = "1.0.0"
+source = "git+https://github.com/tpt-solutions/tpt-replicate?rev=1203d9ec71fe7ecdb15be5aa6f6a82a9a063b5c1#1203d9ec71fe7ecdb15be5aa6f6a82a9a063b5c1"
 
 [[package]]
 name = "trybuild"

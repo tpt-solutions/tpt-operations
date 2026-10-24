@@ -5,6 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Deterministic, reversible, CRDT-compatible operation engine for the TPT stack."
+readme = "README.md"
+repository = "https://github.com/tpt-solutions/tpt-operations"
+keywords = ["crdt", "undo", "event-sourcing", "replay", "deterministic"]
+categories = ["data-structures", "no-std", "rust-patterns"]
 
 [features]
 default = []
@@ -12,8 +16,8 @@ default = []
 std = []
 # Re-exports the `#[derive(Operation)]` macro.
 derive = ["dep:tpt-operations-derive"]
-# Real tpt-uir adapter (stubbed for now).
-uir = []
+# Operation <-> tpt-uir node conversion. Stubbed: the payload is the postcard encoding of the op.
+uir = ["serde"]
 # Real tpt-crypto adapter: SHA-256 digests and Ed25519 signatures.
 crypto = ["serde", "dep:tpt-crypto-hash", "dep:tpt-crypto-sig"]
 # Real tpt-primitives adapter: maps ActorId to and from Principal.
@@ -35,3 +39,6 @@ workspace = true
 
 [dev-dependencies]
 trybuild = "1.0.122"
+# Merge executor for the associativity (grouping) property. Pinned to the origin/master commit
+# that was checked. Its core has no dependencies.
+tpt-replicate = { git = "https://github.com/tpt-solutions/tpt-replicate", rev = "1203d9ec71fe7ecdb15be5aa6f6a82a9a063b5c1", default-features = false }
