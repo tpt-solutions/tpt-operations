@@ -10,6 +10,11 @@ use crate::{
 };
 use alloc::{collections::VecDeque, vec::Vec};
 
+#[cfg(feature = "serde")]
+pub mod replay;
+#[cfg(feature = "serde")]
+pub use replay::{ReplayEngine, ReplayError, ReplayPolicy, ReplayTrace};
+
 /// Default cap on the number of undo steps.
 pub const DEFAULT_MAX_OPS: usize = 10_000;
 
