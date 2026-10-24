@@ -7,6 +7,17 @@ Nothing is published yet, so there are no released versions.
 ## [Unreleased]
 
 ### Added
+- `prelude` module: `use tpt_operations::prelude::*;` brings in the common names.
+- `#[derive(SizeEstimate)]` (`derive` feature), the inline size of the type.
+- Runnable examples: `counter`, `text_doc_undo`, `cell_crdt`, `cad_vertex`,
+  `delta_op`, `signed_audit_log` and `event_sourcing_replay`.
+- `ActorId` implements `Display`, `Default` and the `u64` conversions.
+- `OperationBatch` implements `From<Vec>`, `Extend` and `IntoIterator`, and has
+  `ops` and `into_ops`.
+- `HistoryStack::clear` and `ReplayEngine::default`.
+- Quick-start and feature table in the crate docs, and the README example is
+  compiled as a doc-test.
+- `ReplayGuard`, `SignedEntry::seq` and the author check in `pipeline::receive`.
 - `State`, `Operation<S>` and `OpError` core traits. Inverses are built from a
   pre-application snapshot, never by arithmetic on the op's inputs.
 - `#[derive(Operation)]` re-export behind the `derive` feature.

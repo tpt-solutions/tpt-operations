@@ -17,11 +17,14 @@ applied, and inverted for undo. See [`spec.txt`](spec.txt) for the design and
 | Feature | Default | Effect |
 | --- | --- | --- |
 | `std` | no | Enables `std::error::Error` for `OpError`. |
-| `derive` | no | Re-exports the `#[derive(Operation)]` macro. |
+| `derive` | no | Re-exports `#[derive(Operation)]` and `#[derive(SizeEstimate)]`. |
 | `serde` | no | Serialized, versioned op log (serde + postcard) for `ReplayEngine`. |
 | `crypto` | no | Real `tpt-crypto` adapter: SHA-256 digests and Ed25519 signatures. Enables `SignedEntry` and the `pipeline` module (`commit` / `receive`). |
-| `primitives` | no | Real `tpt-primitives` adapter: maps `ActorId` to and from `Principal`. |
+| `primitives` | no | Real `tpt-primitives` adapter: maps `ActorId` to and from `Principal`. Needs a target with `std`: `tpt-primitives` does not build for bare-metal targets. |
 | `uir` | no | `tpt-uir` node conversion (`to_node` / `from_node`). Still a stub: digests cover postcard bytes, not canonical `tpt-uir` bytes. |
+
+Runnable examples are in [`tpt-operations/examples/`](tpt-operations/examples),
+listed in the [crate README](tpt-operations/README.md#examples).
 
 See [`docs/integration.md`](docs/integration.md) for how these integration
 points connect to the sibling crates.

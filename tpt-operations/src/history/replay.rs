@@ -135,6 +135,13 @@ pub struct ReplayEngine {
     policy: ReplayPolicy,
 }
 
+impl Default for ReplayEngine {
+    /// An engine that stops at the first failed entry ([`ReplayPolicy::FailFast`]).
+    fn default() -> Self {
+        Self::new(ReplayPolicy::FailFast)
+    }
+}
+
 impl ReplayEngine {
     /// Creates an engine with the given failure policy.
     pub fn new(policy: ReplayPolicy) -> Self {

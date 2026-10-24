@@ -34,6 +34,24 @@ tpt-crypto-hash = { git = "https://github.com/tpt-solutions/tpt-crypto", rev = "
 tpt-primitives = { git = "https://github.com/tpt-solutions/tpt-primitives", rev = "336292c8a6f623768c8db5eb7a3082fa407c98f8", optional = true }
 tpt-crypto-sig = { git = "https://github.com/tpt-solutions/tpt-crypto", rev = "8b73d9b13cb1432547a03dd58d8cf8d6231e3784", default-features = false, optional = true }
 
+# Each example says how to run it in its header. The ones that need a feature
+# are skipped by a plain `cargo build --examples`.
+[[example]]
+name = "counter"
+required-features = ["derive"]
+
+[[example]]
+name = "cad_vertex"
+required-features = ["derive"]
+
+[[example]]
+name = "signed_audit_log"
+required-features = ["crypto"]
+
+[[example]]
+name = "event_sourcing_replay"
+required-features = ["serde"]
+
 [lints]
 workspace = true
 

@@ -18,6 +18,8 @@
 //!   Inverses are never written as expressions, so they cannot drift.
 //! - `validate` accepts every operation. Override it by writing the trait impl by hand.
 //! - `Inverse` is `Self`.
+//! - `#[derive(SizeEstimate)]` implements `history::SizeEstimate` as the inline size
+//!   of the type, for the `HistoryStack` memory cap.
 //! - `#[tpt(commutative)]`, `#[tpt(associative)]` and `#[tpt(idempotent)]` on the
 //!   struct declare the matching `CrdtCompatible` markers. Each defaults to `false`.
 //!   Declare a marker only if it holds for every value of the type. Field-setting
@@ -115,6 +117,29 @@ fn expand(input: &DeriveInput) -> Result<TokenStream2> {
             const IS_IDEMPOTENT: bool = #idempotent;
         }
     })
+}
+
+/// Derives `SizeEstimate` as `size_of::<Self>()`.
+///
+/// This counts the inline size only. Heap data owned by the fields, such as the
+/// contents of a `String` or `Vec`, is not counted. Write the impl by hand for
+/// operations that carry large heap data, so the memory cap stays honest.
+/// Works for structs and enums, with or without generics.
+#[proc_macro_derive(SizeEstimate)]
+pub fn derive_size_estimate(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+    let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    quote! {
+        impl #impl_generics ::tpt_operations::history::SizeEstimate
+            for #name #type_generics #where_clause
+        {
+            fn estimated_size(&self) -> usize {
+                ::core::mem::size_of::<Self>()
+            }
+        }
+    }
+    .into()
 }
 
 /// CRDT markers declared on the container. Each defaults to `false`, the conservative choice.

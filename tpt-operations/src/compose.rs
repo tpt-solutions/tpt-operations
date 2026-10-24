@@ -50,6 +50,16 @@ impl<O> OperationBatch<O> {
         self.ops.iter()
     }
 
+    /// The operations, in application order.
+    pub fn ops(&self) -> &[O] {
+        &self.ops
+    }
+
+    /// Consumes the batch and returns its operations, in application order.
+    pub fn into_ops(self) -> Vec<O> {
+        self.ops
+    }
+
     /// Applies every operation in order, atomically.
     ///
     /// On success, returns the batch that undoes this one. Its operations are
@@ -93,6 +103,36 @@ where
     Ok(inverse)
 }
 
+impl<O> From<Vec<O>> for OperationBatch<O> {
+    fn from(ops: Vec<O>) -> Self {
+        Self { ops }
+    }
+}
+
+impl<O> Extend<O> for OperationBatch<O> {
+    fn extend<I: IntoIterator<Item = O>>(&mut self, iter: I) {
+        self.ops.extend(iter);
+    }
+}
+
+impl<O> IntoIterator for OperationBatch<O> {
+    type Item = O;
+    type IntoIter = ::alloc::vec::IntoIter<O>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.ops.into_iter()
+    }
+}
+
+impl<'a, O> IntoIterator for &'a OperationBatch<O> {
+    type Item = &'a O;
+    type IntoIter = ::core::slice::Iter<'a, O>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.ops.iter()
+    }
+}
+
 impl<O> FromIterator<O> for OperationBatch<O> {
     fn from_iter<I: IntoIterator<Item = O>>(iter: I) -> Self {
         Self {
@@ -103,8 +143,26 @@ impl<O> FromIterator<O> for OperationBatch<O> {
 
 /// Builds an [`OperationBatch`] from a comma-separated list of operations.
 ///
-/// ```ignore
-/// let batch = tpt_batch![MapOp::Insert { key: "a".into(), value: 1 }, MapOp::Remove { key: "b".into() }];
+/// ```
+/// use tpt_operations::{compose::OperationBatch, core::{ActorId, OpError, Operation, State}, tpt_batch};
+///
+/// #[derive(Clone, Default)]
+/// struct Counter(i64);
+/// impl State for Counter {}
+///
+/// #[derive(Clone)]
+/// struct Set(i64);
+/// impl Operation<Counter> for Set {
+///     type Inverse = Set;
+///     fn apply(&self, s: &mut Counter) -> Result<(), OpError> { s.0 = self.0; Ok(()) }
+///     fn inverse(&self, s: &Counter) -> Result<Set, OpError> { Ok(Set(s.0)) }
+///     fn validate(&self, _s: &Counter, _a: &ActorId) -> Result<(), OpError> { Ok(()) }
+/// }
+///
+/// let batch: OperationBatch<Set> = tpt_batch![Set(1), Set(2)];
+/// let mut state = Counter::default();
+/// batch.apply(&mut state, &ActorId(1)).unwrap();
+/// assert_eq!(state.0, 2);
 /// ```
 #[macro_export]
 macro_rules! tpt_batch {
@@ -290,6 +348,19 @@ mod tests {
         assert_eq!(state.value, -7);
         undo.apply(&mut state, &actor()).unwrap();
         assert_eq!(state, start);
+    }
+
+    #[test]
+    fn batch_converts_extends_and_iterates() {
+        let mut batch = OperationBatch::from(vec![CounterOp::Add(1)]);
+        batch.extend([CounterOp::Add(2), CounterOp::Set(3)]);
+        assert_eq!(batch.ops().len(), 3);
+
+        let by_ref: Vec<&CounterOp> = (&batch).into_iter().collect();
+        assert_eq!(by_ref.len(), 3);
+
+        let owned: Vec<CounterOp> = batch.clone().into_iter().collect();
+        assert_eq!(owned, batch.into_ops());
     }
 
     #[test]

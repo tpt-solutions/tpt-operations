@@ -7,14 +7,22 @@ operation runs, so undo restores the exact prior state.
 
 The crate is `no_std` and uses `alloc`. It forbids `unsafe` code.
 
-## Example
+## Install
 
-Enable the `derive` feature to get `#[derive(Operation)]`:
+Nothing is published to crates.io yet, so depend on it by git or by path:
 
 ```toml
 [dependencies]
-tpt-operations = { version = "0.1", features = ["derive"] }
+tpt-operations = { git = "https://github.com/tpt-solutions/tpt-operations", features = ["derive"] }
 ```
+
+The `derive` feature is **off by default**. Without it, `#[derive(Operation)]`
+is not available and you write the `Operation` impl by hand. Both ways are
+shown in the examples below.
+
+## Example
+
+With the `derive` feature, `#[derive(Operation)]` writes the operation for you:
 
 ```rust
 use tpt_operations::core::{Operation as _, OpError, State};
@@ -48,15 +56,46 @@ fn main() -> Result<(), OpError> {
 }
 ```
 
+For the common imports in one line, use `use tpt_operations::prelude::*;`.
+
+## Examples
+
+Each one is a runnable program that prints what it does. Run it with
+`cargo run -p tpt-operations --example <name>`, adding the feature in the
+table when there is one.
+
+| Example | Feature | Shows |
+| --- | --- | --- |
+| `counter` | `derive` | The smallest program: a derived op, undo and redo. |
+| `text_doc_undo` | none | A text document where "replace all" is one undo step, and a bad batch changes nothing. |
+| `cell_crdt` | none | Last-writer-wins cells with Lamport stamps. Every delivery order converges. |
+| `cad_vertex` | `derive` | Float positions that undo to the exact bits. |
+| `delta_op` | none | The Inverse Drift rule, by breaking it. Write delta ops by hand like this. |
+| `signed_audit_log` | `crypto` | Commit and receive with Ed25519. Tampering, impersonation and replay are refused. |
+| `event_sourcing_replay` | `serde` | Write an op log, replay it, and read the audit trace. |
+
 ## Features
+
+Pick features by what you need:
+
+| I want to... | Enable |
+| --- | --- |
+| Use `#[derive(Operation)]` and `#[derive(SizeEstimate)]` | `derive` |
+| Replay a serialized op log | `serde` |
+| Sign and verify entries, and use `pipeline::commit` / `receive` | `crypto` |
+| Map `ActorId` to a `tpt-primitives` principal | `primitives` |
+| Convert operations to `tpt-uir` nodes | `uir` |
+| Get `std::error::Error` for `OpError` | `std` |
+
+Details:
 
 | Feature | Default | Effect |
 | --- | --- | --- |
 | `std` | no | Enables `std::error::Error` for `OpError`. |
-| `derive` | no | Re-exports the `#[derive(Operation)]` macro from `tpt-operations-derive`. |
+| `derive` | no | Re-exports `#[derive(Operation)]` and `#[derive(SizeEstimate)]` from `tpt-operations-derive`. |
 | `serde` | no | Serialized, versioned op log (serde + postcard) for `ReplayEngine`. |
 | `crypto` | no | `tpt-crypto` adapter: SHA-256 digests and Ed25519 signatures. Enables `SignedEntry` and the `pipeline` module (`commit` / `receive`). |
-| `primitives` | no | `tpt-primitives` adapter: maps `ActorId` to and from `Principal`. |
+| `primitives` | no | `tpt-primitives` adapter: maps `ActorId` to and from `Principal`. Needs a target with `std`: `tpt-primitives` does not build for bare-metal targets. |
 | `uir` | no | `tpt-uir` node conversion (`to_node` / `from_node`). This is a stub: digests cover postcard bytes, not canonical `tpt-uir` bytes. |
 
 ## Rules
@@ -83,6 +122,7 @@ for how these integration points connect to the sibling crates, and
 
 ```sh
 cargo test -p tpt-operations --all-features
+cargo build -p tpt-operations --examples --all-features
 cargo build -p tpt-operations --no-default-features --target thumbv7em-none-eabihf
 ```
 

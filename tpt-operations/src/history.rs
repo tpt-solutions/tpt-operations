@@ -79,6 +79,13 @@ impl<O> HistoryStack<O> {
         self.undo_bytes
     }
 
+    /// Forgets all undo and redo steps. The state is not touched.
+    pub fn clear(&mut self) {
+        self.undo.clear();
+        self.redo.clear();
+        self.undo_bytes = 0;
+    }
+
     /// Returns `true` if [`HistoryStack::undo`] would do something.
     pub fn can_undo(&self) -> bool {
         !self.undo.is_empty()
@@ -240,6 +247,20 @@ mod tests {
 
         assert!(history.redo(&mut state, &actor()).unwrap());
         assert_eq!(state.value, 5);
+    }
+
+    #[test]
+    fn clear_forgets_both_stacks_and_keeps_the_state() {
+        let mut history = HistoryStack::new();
+        let mut state = Counter { value: 0 };
+        history.execute(&mut state, &add(1), &actor()).unwrap();
+        history.execute(&mut state, &add(2), &actor()).unwrap();
+        history.undo(&mut state, &actor()).unwrap();
+
+        history.clear();
+        assert!(!history.can_undo() && !history.can_redo());
+        assert_eq!(history.undo_bytes(), 0);
+        assert_eq!(state.value, 1);
     }
 
     #[test]

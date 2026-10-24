@@ -25,6 +25,12 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - run: cargo test --workspace --all-features
+      - name: Run every example
+        shell: bash
+        run: |
+          for example in counter text_doc_undo cell_crdt cad_vertex delta_op signed_audit_log event_sourcing_replay; do
+            cargo run --quiet -p tpt-operations --all-features --example "$example"
+          done
 
   no-std:
     name: no_std build (${{ matrix.target }})
@@ -43,6 +49,7 @@ jobs:
           targets: ${{ matrix.target }}
       - run: cargo build -p tpt-operations --no-default-features --target ${{ matrix.target }}
       - run: cargo build -p tpt-operations --no-default-features --features serde,crypto --target ${{ matrix.target }}
+      - run: cargo build -p tpt-operations --no-default-features --features uir,derive --target ${{ matrix.target }}
 
   deny:
     name: cargo deny

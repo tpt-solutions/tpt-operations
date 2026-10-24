@@ -124,23 +124,23 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [ ] Golden file on Linux and macOS (runs in CI once pushed)
 
 ### Adoption quick wins
-- [ ] `tpt_operations::prelude` (`State`, `Operation`, `OpError`, `ActorId`, `OperationBatch`, `tpt_batch!`, `HistoryStack`, `SizeEstimate`, derive when enabled)
-- [ ] `#![doc = include_str!("../README.md")]` so README snippets compile; replace the `ignore` on the `tpt_batch!` example
-- [ ] Features decision table ("I want X, enable Y") in the README
-- [ ] `#[derive(SizeEstimate)]`
-- [ ] Ergonomics: `Display`, `From<u64>` and `Default` for `ActorId`; `IntoIterator`, `Extend`, `From<Vec>` and `into_ops()` for `OperationBatch`; `ReplayEngine::default()`; `HistoryStack::clear()` and peek; take `ActorId` by value consistently
-- [ ] Doc-tests for the main types
-- [ ] README: say `derive` is off by default, and replace the unpublished `version = "0.1"` snippet until the crate is published
+- [x] `tpt_operations::prelude` (`State`, `Operation`, `OpError`, `ActorId`, `OperationBatch`, `tpt_batch!`, `HistoryStack`, `SizeEstimate`, derive when enabled)
+- [x] README snippet compiled as a doc-test (`ReadmeDoctests`, `derive` feature), `tpt_batch!` example no longer `ignore`, and a quick start in the crate docs
+- [x] Features decision table ("I want X, enable Y") in the README and crate docs
+- [x] `#[derive(SizeEstimate)]` (inline size only; structs, enums and generics)
+- [~] Ergonomics: done are `Display`, `From<u64>` and `Default` for `ActorId`; `IntoIterator`, `Extend`, `From<Vec>`, `ops()` and `into_ops()` for `OperationBatch`; `ReplayEngine::default()`; `HistoryStack::clear()`. Open: a `HistoryStack` peek, and taking `ActorId` by value consistently (breaking, so decide before 1.0)
+- [~] Doc-tests: the crate quick start, `tpt_batch!` and the README example. Open: `HistoryStack`, `ReplayEngine`, `CrdtCompatible`
+- [x] README: says `derive` is off by default, and the install snippet is a git dependency
 
 ### Examples (`examples/`, each runnable with `cargo run --example`, built in CI)
-- [ ] `counter`
-- [ ] `text_doc_undo` (HistoryStack with batches)
-- [ ] `cell_crdt` (Lamport stamps and a convergence check)
-- [ ] `cad_vertex` (promote `tests/move_cad_vertex.rs`)
-- [ ] `signed_audit_log` (commit, receive, tamper detection)
-- [ ] `event_sourcing_replay` (write a log, replay, print the trace)
-- [ ] `delta_op` (hand-written inverse, the Inverse Drift lesson)
-- [ ] `no_std`
+- [x] `counter`
+- [x] `text_doc_undo` (HistoryStack with batches)
+- [x] `cell_crdt` (Lamport stamps and a convergence check)
+- [x] `cad_vertex` (the test stays as the regression check)
+- [x] `signed_audit_log` (commit, receive, tampering, impersonation, replay)
+- [x] `event_sourcing_replay` (write a log, replay, print the trace)
+- [x] `delta_op` (hand-written inverse, the Inverse Drift lesson)
+- [ ] `no_std` example. Needs its own bare-metal crate, since examples are std binaries. `tpt-primitives` also does not build for bare-metal targets, so `primitives` is std-only
 
 ### Tooling and templates
 - [ ] Public `testkit` feature: `assert_reversible`, `assert_commutative`, `assert_idempotent`, `assert_replay_deterministic`, with a seeded RNG, shrinking and a diagnostic result (not a bare `bool`). `check_commutative` and `check_idempotent` should say which step failed
@@ -157,7 +157,7 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [ ] `[package.metadata.docs.rs]` (`all-features`, `--cfg docsrs`) and `doc(cfg)` on gated modules
 - [ ] Cargo metadata (`homepage`, `documentation`, `authors`) and `exclude` for `tests/golden` and `tests/ui`; consider `publish = false` until ready
 - [ ] `SECURITY.md`, `CONTRIBUTING.md`, issue and PR templates, README badges
-- [ ] CI: MSRV job, `cargo doc -D warnings`, `cargo semver-checks`, `cargo package --dry-run`, scheduled `cargo-deny` advisories run, Dependabot, `rust-cache`, examples build, `permissions:` and SHA-pinned actions, no_std job for `uir` and `primitives`
+- [~] CI: examples run and the no_std job covers `uir` and `derive` (done, not yet run on GitHub). `primitives` cannot be built for bare-metal targets, because `tpt-primitives` pulls in `std` crates. Open: MSRV job, `cargo doc -D warnings`, `cargo semver-checks`, `cargo package --dry-run`, scheduled `cargo-deny` advisories run, Dependabot, `rust-cache`, `permissions:` and SHA-pinned actions
 - [ ] `deny.toml`: add `[graph]` targets and advisories settings, and review the license allow-list (`Unicode-DFS-2016`, `Zlib`, `MPL-2.0`, `CC0-1.0`). The `-sys` ban list misses crates that bundle C without that name
 - [ ] Remove the invalid `msrv` key from `rust-toolchain.toml` (the real MSRV is `rust-version` in `Cargo.toml`)
 - [ ] Reconcile `spec.txt` with the code (`inverse` return type, generic `CrdtCompatible`, derive attributes, pipeline order) or mark it historical

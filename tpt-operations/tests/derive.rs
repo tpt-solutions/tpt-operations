@@ -165,3 +165,28 @@ fn declared_idempotence_holds_on_samples() {
         }
     }
 }
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, tpt_operations::SizeEstimate)]
+struct Tagged<T> {
+    tag: T,
+    payload: [u8; 16],
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, tpt_operations::SizeEstimate)]
+enum Shape {
+    Dot,
+    Line(f64, f64),
+}
+
+#[test]
+fn derived_size_estimate_is_the_inline_size_for_structs_enums_and_generics() {
+    let tagged = Tagged {
+        tag: 1u32,
+        payload: [0; 16],
+    };
+    assert_eq!(tagged.estimated_size(), core::mem::size_of::<Tagged<u32>>());
+    assert_eq!(Shape::Dot.estimated_size(), core::mem::size_of::<Shape>());
+    assert!(Shape::Line(1.0, 2.0).estimated_size() >= 16);
+}
