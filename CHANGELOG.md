@@ -7,6 +7,9 @@ Nothing is published yet, so there are no released versions.
 ## [Unreleased]
 
 ### Added
+- `history::ReplayCursor` (`serde` feature): step forward and back through a log,
+  seek to any position, and skip entries that fail. Stepping back uses the
+  stored inverses, so it does not replay from the start.
 - `#[tpt(validate = path)]` on the derive: `validate` calls a function you name.
   The derive's errors for enums and tuple structs now say to write the impl by
   hand.

@@ -170,7 +170,7 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [ ] `ReplayGuard` requires each author's entries in order. A transport that reorders needs a buffer in front of `receive`. Decide whether this crate should offer one
 
 ### Ideas (post-1.0)
-- [ ] Time-travel debugger over `ReplayTrace`
+- [x] Time-travel over a replay log: `history::ReplayCursor` steps forward and back, seeks, and skips failing entries. A graphical or interactive debugger on top of it is not built
 - [ ] `#[tpt(test)]` on the derive, generating the reversible, commutative and idempotent property tests
 - [ ] Log compaction and signed snapshot checkpoints (uses digest versioning)
 - [ ] Replay-and-verify against a golden digest as a CI regression gate

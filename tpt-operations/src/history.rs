@@ -15,7 +15,7 @@ use alloc::{collections::VecDeque, vec::Vec};
 pub mod replay;
 #[cfg(feature = "serde")]
 #[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
-pub use replay::{ReplayEngine, ReplayError, ReplayPolicy, ReplayTrace};
+pub use replay::{ReplayCursor, ReplayEngine, ReplayError, ReplayPolicy, ReplayTrace};
 
 /// Default cap on the number of undo steps.
 pub const DEFAULT_MAX_OPS: usize = 10_000;

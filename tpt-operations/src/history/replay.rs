@@ -129,6 +129,26 @@ pub fn encode_entry<O: Serialize>(
     Ok(())
 }
 
+/// Decodes the entry at the start of `rest`. Returns its actor, its operation and the bytes after it.
+///
+/// The version comes first, so a layout from a newer format reports
+/// `UnsupportedVersion` instead of failing to decode.
+fn decode_entry<O: DeserializeOwned>(
+    rest: &[u8],
+    index: usize,
+) -> Result<(ActorId, O, &[u8]), ReplayError> {
+    let decode = |e: postcard::Error| ReplayError::Decode {
+        index,
+        message: format!("{e}"),
+    };
+    let (version, tail) = postcard::take_from_bytes::<u16>(rest).map_err(decode)?;
+    if version != FORMAT_VERSION {
+        return Err(ReplayError::UnsupportedVersion { index, version });
+    }
+    let ((actor, op), tail) = postcard::take_from_bytes::<(ActorId, O)>(tail).map_err(decode)?;
+    Ok((actor, op, tail))
+}
+
 /// Rebuilds states from operation logs.
 ///
 /// ```
@@ -194,23 +214,7 @@ impl ReplayEngine {
         let mut index = 0;
 
         while !rest.is_empty() {
-            // The version comes first, so a layout from a newer format reports
-            // `UnsupportedVersion` instead of failing to decode.
-            let (version, tail) =
-                postcard::take_from_bytes::<u16>(rest).map_err(|e| ReplayError::Decode {
-                    index,
-                    message: format!("{e}"),
-                })?;
-            if version != FORMAT_VERSION {
-                return Err(ReplayError::UnsupportedVersion { index, version });
-            }
-            let ((actor, op), tail) =
-                postcard::take_from_bytes::<(ActorId, O)>(tail).map_err(|e| {
-                    ReplayError::Decode {
-                        index,
-                        message: format!("{e}"),
-                    }
-                })?;
+            let (actor, op, tail) = decode_entry::<O>(rest, index)?;
             rest = tail;
 
             // A batch applies to a copy of the state, so a skipped entry leaves no trace in it.
@@ -233,5 +237,189 @@ impl ReplayEngine {
         }
 
         Ok((state, trace))
+    }
+}
+
+/// A position in a replay that can move forward and back.
+///
+/// The cursor decodes the whole log when it is created, and then applies one
+/// entry at a time. Stepping forward keeps each entry's inverse, so stepping
+/// back restores the state exactly, without replaying from the start. Use it to
+/// walk an audit log and look at the state at each entry.
+///
+/// An entry that fails to apply is an error from [`ReplayCursor::step_forward`],
+/// and the cursor stays where it was. Call [`ReplayCursor::skip_forward`] to pass
+/// over it, as [`ReplayPolicy::SkipInvalid`] does.
+///
+/// ```
+/// use serde::{Deserialize, Serialize};
+/// use tpt_operations::{
+///     history::{replay::encode_entry, ReplayCursor},
+///     prelude::*,
+/// };
+///
+/// #[derive(Clone, Debug, Default, PartialEq)]
+/// struct Counter(i64);
+/// impl State for Counter {}
+///
+/// #[derive(Clone, Debug, Serialize, Deserialize)]
+/// struct Set(i64);
+/// impl Operation<Counter> for Set {
+///     type Inverse = Set;
+///     fn apply(&self, s: &mut Counter) -> Result<(), OpError> { s.0 = self.0; Ok(()) }
+///     fn inverse(&self, s: &Counter) -> Result<Set, OpError> { Ok(Set(s.0)) }
+///     fn validate(&self, _: &Counter, _: &ActorId) -> Result<(), OpError> { Ok(()) }
+/// }
+///
+/// let mut log = Vec::new();
+/// for n in [10, 20, 30] {
+///     encode_entry(ActorId(1), &Set(n), &mut log).unwrap();
+/// }
+///
+/// let mut cursor = ReplayCursor::<Counter, Set>::new(Counter(0), &log).unwrap();
+/// cursor.seek(2).unwrap();
+/// assert_eq!(cursor.state(), &Counter(20));
+/// cursor.seek(1).unwrap();
+/// assert_eq!(cursor.state(), &Counter(10));
+/// cursor.seek(0).unwrap();
+/// assert_eq!(cursor.state(), &Counter(0));
+/// ```
+pub struct ReplayCursor<S, O: Operation<S>>
+where
+    S: State,
+{
+    state: S,
+    entries: Vec<(ActorId, O)>,
+    /// One slot per applied entry, `None` for a skipped one.
+    undo: Vec<Option<O::Inverse>>,
+}
+
+impl<S, O> ReplayCursor<S, O>
+where
+    S: State,
+    O: Operation<S> + DeserializeOwned,
+{
+    /// Decodes `log` and places the cursor before its first entry, on `initial`.
+    ///
+    /// Decode errors and unknown format versions are reported here, with the
+    /// index of the entry, so a cursor never holds a log it cannot read.
+    pub fn new(initial: S, log: &[u8]) -> Result<Self, ReplayError> {
+        let mut entries = Vec::new();
+        let mut rest = log;
+        while !rest.is_empty() {
+            let (actor, op, tail) = decode_entry::<O>(rest, entries.len())?;
+            entries.push((actor, op));
+            rest = tail;
+        }
+        Ok(Self {
+            state: initial,
+            entries,
+            undo: Vec::new(),
+        })
+    }
+}
+
+impl<S, O> ReplayCursor<S, O>
+where
+    S: State,
+    O: Operation<S>,
+{
+    /// The state after the entries before the cursor.
+    pub fn state(&self) -> &S {
+        &self.state
+    }
+
+    /// Number of entries before the cursor. It is 0 at the start.
+    pub fn position(&self) -> usize {
+        self.undo.len()
+    }
+
+    /// Number of entries in the log.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Returns `true` if the log has no entries.
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// The entry that [`ReplayCursor::step_forward`] would apply next.
+    pub fn next_entry(&self) -> Option<(ActorId, &O)> {
+        self.entries
+            .get(self.position())
+            .map(|(actor, op)| (*actor, op))
+    }
+
+    /// The entry that [`ReplayCursor::step_back`] would undo next.
+    pub fn previous_entry(&self) -> Option<(ActorId, &O)> {
+        self.position()
+            .checked_sub(1)
+            .and_then(|index| self.entries.get(index))
+            .map(|(actor, op)| (*actor, op))
+    }
+
+    /// Applies the next entry. Returns `Ok(false)` at the end of the log.
+    ///
+    /// If the entry fails, the state and the position are unchanged.
+    pub fn step_forward(&mut self) -> Result<bool, ReplayError> {
+        let index = self.position();
+        let Some((actor, op)) = self.entries.get(index) else {
+            return Ok(false);
+        };
+        let actor = *actor;
+        let result = (|| {
+            op.validate(&self.state, &actor)?;
+            let inverse = op.inverse(&self.state)?;
+            let mut next = self.state.clone();
+            op.apply(&mut next)?;
+            Ok::<_, OpError>((inverse, next))
+        })();
+        match result {
+            Ok((inverse, next)) => {
+                self.state = next;
+                self.undo.push(Some(inverse));
+                Ok(true)
+            }
+            Err(error) => Err(ReplayError::Apply { index, error }),
+        }
+    }
+
+    /// Passes over the next entry without applying it. Returns `false` at the end of the log.
+    pub fn skip_forward(&mut self) -> bool {
+        if self.position() >= self.entries.len() {
+            return false;
+        }
+        self.undo.push(None);
+        true
+    }
+
+    /// Undoes the entry before the cursor. Returns `Ok(false)` at the start.
+    pub fn step_back(&mut self) -> Result<bool, OpError> {
+        let Some(slot) = self.undo.last() else {
+            return Ok(false);
+        };
+        if let Some(inverse) = slot {
+            let mut previous = self.state.clone();
+            inverse.apply(&mut previous)?;
+            self.state = previous;
+        }
+        self.undo.pop();
+        Ok(true)
+    }
+
+    /// Moves the cursor to `position`, which is the number of entries applied.
+    ///
+    /// Stops with an error at an entry that fails going forward. The cursor is
+    /// left just before it. `position` past the end of the log stops at the end.
+    pub fn seek(&mut self, position: usize) -> Result<(), ReplayError> {
+        while self.position() > position {
+            self.step_back().map_err(|error| ReplayError::Apply {
+                index: self.position() - 1,
+                error,
+            })?;
+        }
+        while self.position() < position && self.step_forward()? {}
+        Ok(())
     }
 }

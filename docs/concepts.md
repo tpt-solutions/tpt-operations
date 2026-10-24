@@ -53,6 +53,11 @@ auditor.
 
 Replay is deterministic: the same log and policy give the same state and trace.
 
+To walk a log instead of running it to the end, use `ReplayCursor`. It decodes
+the log once, then moves forward and back one entry at a time (or `seek`s to a
+position), keeping each entry's inverse so stepping back is exact. That is the
+tool for "what did the state look like at entry 40?".
+
 Run it: `cargo run -p tpt-operations --example event_sourcing_replay --features serde`.
 
 ## CRDT markers
