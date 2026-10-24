@@ -12,13 +12,13 @@ use tpt_primitives::capability::Principal;
 fn every_actor_round_trips_through_its_principal() {
     for n in [0, 1, 7, 42, u64::MAX] {
         let actor = ActorId(n);
-        assert_eq!(actor_of(&principal_of(actor)).unwrap(), actor);
+        assert_eq!(actor_of(&principal_of(actor).unwrap()).unwrap(), actor);
     }
 }
 
 #[test]
 fn principal_label_is_actor_colon_number() {
-    assert_eq!(principal_of(ActorId(7)).label(), "actor:7");
+    assert_eq!(principal_of(ActorId(7)).unwrap().label(), "actor:7");
 }
 
 #[test]

@@ -78,7 +78,7 @@ fn note(text: &str) -> Note {
 #[test]
 fn signed_entry_verifies_and_decodes() {
     let signer = ToySigner { key: 42 };
-    let entry = sign_op(ActorId(3), &note("hello"), &ToyDigest, &signer).unwrap();
+    let entry = sign_op(ActorId(3), 1, &note("hello"), &ToyDigest, &signer).unwrap();
 
     let (actor, decoded): (ActorId, Note) = verify_entry(&entry, &ToyDigest, &signer).unwrap();
     assert_eq!(actor, ActorId(3));
@@ -88,7 +88,7 @@ fn signed_entry_verifies_and_decodes() {
 #[test]
 fn tampered_bytes_fail_verification() {
     let signer = ToySigner { key: 42 };
-    let mut entry = sign_op(ActorId(3), &note("hello"), &ToyDigest, &signer).unwrap();
+    let mut entry = sign_op(ActorId(3), 1, &note("hello"), &ToyDigest, &signer).unwrap();
     let last = entry.bytes.len() - 1;
     entry.bytes[last] ^= 0x01;
 
@@ -100,6 +100,7 @@ fn tampered_bytes_fail_verification() {
 fn wrong_key_fails_verification() {
     let entry = sign_op(
         ActorId(3),
+        1,
         &note("hello"),
         &ToyDigest,
         &ToySigner { key: 42 },
@@ -116,6 +117,7 @@ fn unsigned_garbage_is_rejected_before_decoding() {
     let signer = ToySigner { key: 42 };
     let entry = tpt_operations::crypto::SignedEntry {
         bytes: vec![0xFF, 0xFF, 0xFF],
+        seq: 1,
         digest_version: TOY_VERSION,
         signature: vec![0; 8],
     };
@@ -128,10 +130,40 @@ fn unsigned_garbage_is_rejected_before_decoding() {
 fn entry_with_another_digest_version_is_refused_before_checking_the_signature() {
     let signer = ToySigner { key: 42 };
     let op = Note { text: "v".into() };
-    let mut entry = sign_op(ActorId(1), &op, &ToyDigest, &signer).unwrap();
+    let mut entry = sign_op(ActorId(1), 1, &op, &ToyDigest, &signer).unwrap();
     assert_eq!(entry.digest_version, TOY_VERSION);
 
     entry.digest_version = TOY_VERSION + 1;
     let result: Result<(ActorId, Note), _> = verify_entry(&entry, &ToyDigest, &signer);
     assert!(matches!(result, Err(OpError::Validation(msg)) if msg.contains("digest version")));
+}
+
+#[test]
+fn changing_the_sequence_number_breaks_the_signature() {
+    let signer = ToySigner { key: 42 };
+    let mut entry = sign_op(ActorId(3), 1, &note("hello"), &ToyDigest, &signer).unwrap();
+    entry.seq = 2;
+
+    let result: Result<(ActorId, Note), _> = verify_entry(&entry, &ToyDigest, &signer);
+    assert!(matches!(result, Err(OpError::Validation(_))));
+}
+
+#[test]
+fn the_signature_covers_the_digest_version() {
+    // A digest that accepts two versions must not let an attacker swap them.
+    struct TwoVersions(u8);
+    impl Digest for TwoVersions {
+        fn digest(&self, bytes: &[u8]) -> Vec<u8> {
+            ToyDigest.digest(bytes)
+        }
+        fn version(&self) -> u8 {
+            self.0
+        }
+    }
+    let signer = ToySigner { key: 42 };
+    let mut entry = sign_op(ActorId(1), 1, &note("v"), &TwoVersions(1), &signer).unwrap();
+    entry.digest_version = 2;
+
+    let result: Result<(ActorId, Note), _> = verify_entry(&entry, &TwoVersions(2), &signer);
+    assert!(matches!(result, Err(OpError::Validation(_))));
 }

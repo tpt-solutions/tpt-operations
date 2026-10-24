@@ -11,10 +11,11 @@ use tpt_primitives::capability::Principal;
 
 const PREFIX: &str = "actor:";
 
-/// The principal for `actor`.
-pub fn principal_of(actor: ActorId) -> Principal {
-    // The label is never empty, so construction cannot fail.
-    Principal::new(format!("{PREFIX}{}", actor.0)).expect("actor label is never empty")
+/// The principal for `actor`. Fails only if `tpt-primitives` starts refusing
+/// the `actor:<n>` label.
+pub fn principal_of(actor: ActorId) -> Result<Principal, OpError> {
+    Principal::new(format!("{PREFIX}{}", actor.0))
+        .map_err(|e| OpError::Validation(format!("principal for actor {}: {e}", actor.0)))
 }
 
 /// The actor for `principal`. Fails unless the label is exactly `actor:<n>`.

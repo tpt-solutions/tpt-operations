@@ -1,13 +1,13 @@
 //! Batching: groups of operations that are applied all-or-nothing.
 
 use crate::core::{ActorId, OpError, Operation, State};
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 
 /// An ordered group of operations that applies atomically.
 ///
-/// If any operation fails validation or application, the operations already
-/// applied are undone in reverse order, and the error is returned. The state
-/// is then exactly as it was before the batch started.
+/// If any operation fails validation or application, the error is returned and
+/// the state is exactly as it was before the batch started, even when the
+/// failing operation had already changed part of a state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OperationBatch<O> {
     ops: Vec<O>,
@@ -54,9 +54,13 @@ impl<O> OperationBatch<O> {
     ///
     /// On success, returns the batch that undoes this one. Its operations are
     /// the inverses in reverse order, so applying it restores the pre-batch
-    /// state. On failure, the state is rolled back and the error is returned.
-    /// If the rollback itself fails, the error is `OpError::Conflict` and the
-    /// state is unknown. Snapshot-based inverses should make that impossible.
+    /// state. On failure, `state` is untouched and the error is returned.
+    ///
+    /// The operations run on a copy of `state`, which replaces `state` only if
+    /// every operation succeeds. [`Operation::apply`] may leave a state partly
+    /// changed on error, and the copy keeps that from reaching the caller. It
+    /// also means no rollback is needed, so there is no rollback to fail. The
+    /// cost is one clone of the state per batch.
     pub fn apply<S>(
         &self,
         state: &mut S,
@@ -66,15 +70,14 @@ impl<O> OperationBatch<O> {
         S: State,
         O: Operation<S>,
     {
-        let mut applied = Vec::with_capacity(self.ops.len());
+        let mut next = state.clone();
+        let mut inverses = Vec::with_capacity(self.ops.len());
         for op in &self.ops {
-            match apply_step(op, state, actor) {
-                Ok(inverse) => applied.push(inverse),
-                Err(err) => return Err(rollback(state, applied, err)),
-            }
+            inverses.push(apply_step(op, &mut next, actor)?);
         }
-        applied.reverse();
-        Ok(OperationBatch::from_ops(applied))
+        *state = next;
+        inverses.reverse();
+        Ok(OperationBatch::from_ops(inverses))
     }
 }
 
@@ -88,20 +91,6 @@ where
     let inverse = op.inverse(state)?;
     op.apply(state)?;
     Ok(inverse)
-}
-
-/// Undoes the operations applied so far, newest first, and returns `err`.
-fn rollback<S, I>(state: &mut S, applied: Vec<I>, err: OpError) -> OpError
-where
-    S: State,
-    I: Operation<S>,
-{
-    for inverse in applied.iter().rev() {
-        if let Err(undo_err) = inverse.apply(state) {
-            return OpError::Conflict(format!("rollback failed ({undo_err}) after: {err}"));
-        }
-    }
-    err
 }
 
 impl<O> FromIterator<O> for OperationBatch<O> {
@@ -217,6 +206,77 @@ mod tests {
             let err = batch.apply(&mut state, &actor()).unwrap_err();
             assert!(matches!(err, OpError::Bounds(_)), "position {position}");
             assert_eq!(state, start, "state changed at position {position}");
+        }
+    }
+
+    /// An op that changes the state and then fails, which `State::apply` permits.
+    #[derive(Debug, Clone)]
+    struct HalfApply;
+
+    impl Operation<Counter> for HalfApply {
+        type Inverse = CounterOp;
+
+        fn apply(&self, state: &mut Counter) -> Result<(), OpError> {
+            state.value += 100;
+            Err(OpError::Conflict("failed after mutating".to_string()))
+        }
+
+        fn inverse(&self, state: &Counter) -> Result<CounterOp, OpError> {
+            Ok(CounterOp::Set(state.value))
+        }
+
+        fn validate(&self, _state: &Counter, _actor: &ActorId) -> Result<(), OpError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn partial_mutation_by_a_failing_op_is_not_left_in_the_state() {
+        let start = Counter { value: 4 };
+        let mut state = start.clone();
+        let batch = OperationBatch::from_ops(vec![HalfApply]);
+
+        let err = batch.apply(&mut state, &actor()).unwrap_err();
+        assert!(matches!(err, OpError::Conflict(_)));
+        assert_eq!(state, start);
+    }
+
+    #[test]
+    fn partial_mutation_after_earlier_successes_leaves_the_start_state() {
+        // The first op succeeds and the second half-applies, so neither may survive.
+        let start = Counter { value: 4 };
+        let mut state = start.clone();
+        let batch: OperationBatch<CounterOpOrHalf> = OperationBatch::from_ops(vec![
+            CounterOpOrHalf::Plain(CounterOp::Add(1)),
+            CounterOpOrHalf::Half(HalfApply),
+        ]);
+
+        batch.apply(&mut state, &actor()).unwrap_err();
+        assert_eq!(state, start);
+    }
+
+    #[derive(Debug, Clone)]
+    enum CounterOpOrHalf {
+        Plain(CounterOp),
+        Half(HalfApply),
+    }
+
+    impl Operation<Counter> for CounterOpOrHalf {
+        type Inverse = CounterOp;
+
+        fn apply(&self, state: &mut Counter) -> Result<(), OpError> {
+            match self {
+                Self::Plain(op) => op.apply(state),
+                Self::Half(op) => op.apply(state),
+            }
+        }
+
+        fn inverse(&self, state: &Counter) -> Result<CounterOp, OpError> {
+            Ok(CounterOp::Set(state.value))
+        }
+
+        fn validate(&self, _state: &Counter, _actor: &ActorId) -> Result<(), OpError> {
+            Ok(())
         }
     }
 

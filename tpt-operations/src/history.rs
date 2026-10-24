@@ -138,9 +138,11 @@ impl<O: SizeEstimate> HistoryStack<O> {
         match step.batch.apply(state, actor) {
             Ok(redo_batch) => {
                 self.undo_bytes -= step.bytes;
+                // The reversing batch can be a different size, so measure it.
+                let bytes = batch_bytes(&redo_batch);
                 self.redo.push(Step {
                     batch: redo_batch,
-                    bytes: step.bytes,
+                    bytes,
                 });
                 Ok(true)
             }
@@ -162,10 +164,11 @@ impl<O: SizeEstimate> HistoryStack<O> {
         };
         match step.batch.apply(state, actor) {
             Ok(undo_batch) => {
-                self.undo_bytes += step.bytes;
+                let bytes = batch_bytes(&undo_batch);
+                self.undo_bytes += bytes;
                 self.undo.push_back(Step {
                     batch: undo_batch,
-                    bytes: step.bytes,
+                    bytes,
                 });
                 self.evict();
                 Ok(true)
@@ -342,6 +345,84 @@ mod tests {
         history.execute(&mut state, &add(7), &actor()).unwrap();
         assert_eq!(state.value, 7);
         assert!(!history.can_undo());
+    }
+
+    #[test]
+    fn undo_bytes_follow_the_size_of_each_stored_batch() {
+        // Removing a long key stores a small inverse, and inserting it back stores a big one.
+        let mut history = HistoryStack::new();
+        let mut state = Map::default();
+        let key = "k".repeat(100);
+        state.entries.insert(key.clone(), 1);
+        let remove = OperationBatch::from_ops(alloc::vec![MapOp::Remove { key: key.clone() }]);
+
+        history.execute(&mut state, &remove, &actor()).unwrap();
+        let after_execute = history.undo_bytes();
+        history.undo(&mut state, &actor()).unwrap();
+        assert_eq!(history.undo_bytes(), 0);
+        history.redo(&mut state, &actor()).unwrap();
+        // The step is the same size as when it was first recorded.
+        assert_eq!(history.undo_bytes(), after_execute);
+        history.undo(&mut state, &actor()).unwrap();
+        history.redo(&mut state, &actor()).unwrap();
+        assert_eq!(history.undo_bytes(), after_execute);
+    }
+
+    #[test]
+    fn zero_limits_keep_no_history_but_still_apply() {
+        let mut state = Counter { value: 0 };
+        let mut by_count = HistoryStack::with_limits(0, usize::MAX);
+        by_count.execute(&mut state, &add(2), &actor()).unwrap();
+        assert!(!by_count.can_undo());
+
+        let mut by_bytes = HistoryStack::with_limits(usize::MAX, 0);
+        by_bytes.execute(&mut state, &add(3), &actor()).unwrap();
+        assert!(!by_bytes.can_undo());
+        assert_eq!(state.value, 5);
+    }
+
+    #[test]
+    fn failed_execute_keeps_the_redo_stack() {
+        let mut history = HistoryStack::new();
+        let mut state = Counter { value: 0 };
+        history.execute(&mut state, &add(1), &actor()).unwrap();
+        history.undo(&mut state, &actor()).unwrap();
+        assert_eq!(history.redo_len(), 1);
+
+        state.value = i64::MAX;
+        history.execute(&mut state, &add(1), &actor()).unwrap_err();
+        assert_eq!(history.redo_len(), 1);
+        assert_eq!(state.value, i64::MAX);
+    }
+
+    #[test]
+    fn failed_undo_keeps_the_step_and_the_state() {
+        // Snapshot inverses cannot fail on their own state, so plant an
+        // overflowing step to reach the failure path.
+        let mut failing = HistoryStack::new();
+        failing.undo.push_back(Step {
+            batch: crate::tpt_batch![CounterOp::Add(i64::MAX)],
+            bytes: 1,
+        });
+        failing.undo_bytes = 1;
+        let mut near_max = Counter { value: 5 };
+        failing.undo(&mut near_max, &actor()).unwrap_err();
+        assert_eq!(near_max.value, 5);
+        assert_eq!(failing.undo_len(), 1);
+        assert_eq!(failing.undo_bytes(), 1);
+    }
+
+    #[test]
+    fn failed_redo_keeps_the_step_and_the_state() {
+        let mut history: HistoryStack<CounterOp> = HistoryStack::new();
+        history.redo.push(Step {
+            batch: crate::tpt_batch![CounterOp::Add(i64::MAX)],
+            bytes: 1,
+        });
+        let mut state = Counter { value: 5 };
+        history.redo(&mut state, &actor()).unwrap_err();
+        assert_eq!(state.value, 5);
+        assert_eq!(history.redo_len(), 1);
     }
 
     #[test]

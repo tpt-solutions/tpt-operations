@@ -82,7 +82,7 @@ fn signed_entry_round_trips_and_detects_tampering() {
         text: "move vertex 4".into(),
     };
 
-    let entry = sign_op(ActorId(42), &op, &Sha256, &signer).unwrap();
+    let entry = sign_op(ActorId(42), 1, &op, &Sha256, &signer).unwrap();
     assert_eq!(entry.digest_version, SHA256_POSTCARD_VERSION);
     let (actor, decoded): (ActorId, Note) = verify_entry(&entry, &Sha256, &verifier).unwrap();
     assert_eq!((actor, decoded), (ActorId(42), op));
@@ -100,6 +100,6 @@ fn entry_signed_by_another_key_is_rejected() {
     let verifier = Ed25519Verifier::from_bytes(&other.public_key()).unwrap();
     let op = Note { text: "x".into() };
 
-    let entry = sign_op(ActorId(1), &op, &Sha256, &signer).unwrap();
+    let entry = sign_op(ActorId(1), 1, &op, &Sha256, &signer).unwrap();
     assert!(verify_entry::<Note, _, _>(&entry, &Sha256, &verifier).is_err());
 }

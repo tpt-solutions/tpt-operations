@@ -156,18 +156,26 @@ impl ReplayEngine {
         let mut index = 0;
 
         while !rest.is_empty() {
-            let ((version, actor, op), tail) = postcard::take_from_bytes::<(u16, ActorId, O)>(rest)
-                .map_err(|e| ReplayError::Decode {
+            // The version comes first, so a layout from a newer format reports
+            // `UnsupportedVersion` instead of failing to decode.
+            let (version, tail) =
+                postcard::take_from_bytes::<u16>(rest).map_err(|e| ReplayError::Decode {
                     index,
                     message: format!("{e}"),
                 })?;
-            rest = tail;
-
             if version != FORMAT_VERSION {
                 return Err(ReplayError::UnsupportedVersion { index, version });
             }
+            let ((actor, op), tail) =
+                postcard::take_from_bytes::<(ActorId, O)>(tail).map_err(|e| {
+                    ReplayError::Decode {
+                        index,
+                        message: format!("{e}"),
+                    }
+                })?;
+            rest = tail;
 
-            // A one-op batch rolls back on failure, so a skipped entry leaves no trace in the state.
+            // A batch applies to a copy of the state, so a skipped entry leaves no trace in it.
             match OperationBatch::from_ops(vec![op]).apply(&mut state, &actor) {
                 Ok(_) => trace.entries.push(TraceEntry {
                     index,

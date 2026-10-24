@@ -4,7 +4,7 @@
 //! They do not prove a property. Use them in tests to confirm that a
 //! [`CrdtCompatible`] declaration is true on sampled inputs.
 
-use crate::core::{ActorId, Operation, State};
+use crate::core::{ActorId, OpError, Operation, State};
 
 /// Declares which algebraic properties an operation type guarantees.
 ///
@@ -47,12 +47,19 @@ impl LamportClock {
     }
 
     /// Stamps a local operation. The stamp is greater than every earlier one.
-    pub fn tick(&mut self, actor: ActorId) -> OpTimestamp {
-        self.counter = self.counter.saturating_add(1);
-        OpTimestamp {
+    ///
+    /// Fails with [`OpError::Bounds`] once the counter is exhausted, which a
+    /// remote stamp of `u64::MAX` can cause through [`LamportClock::observe`].
+    /// The clock never repeats a stamp, so it stops instead of wrapping.
+    pub fn tick(&mut self, actor: ActorId) -> Result<OpTimestamp, OpError> {
+        self.counter = self
+            .counter
+            .checked_add(1)
+            .ok_or_else(|| OpError::Bounds("lamport counter exhausted".into()))?;
+        Ok(OpTimestamp {
             lamport: self.counter,
             actor,
-        }
+        })
     }
 
     /// Merges a remote stamp, so later local stamps sort after it.
@@ -224,8 +231,8 @@ mod tests {
     #[test]
     fn lamport_clock_is_monotonic_and_observes_remote_stamps() {
         let mut clock = LamportClock::new();
-        let first = clock.tick(ActorId(1));
-        let second = clock.tick(ActorId(1));
+        let first = clock.tick(ActorId(1)).unwrap();
+        let second = clock.tick(ActorId(1)).unwrap();
         assert!(second > first);
 
         let remote = OpTimestamp {
@@ -233,8 +240,20 @@ mod tests {
             actor: ActorId(2),
         };
         clock.observe(remote);
-        let after = clock.tick(ActorId(1));
+        let after = clock.tick(ActorId(1)).unwrap();
         assert!(after > remote);
         assert_eq!(after.lamport, 101);
+    }
+
+    #[test]
+    fn an_exhausted_clock_errors_instead_of_repeating_a_stamp() {
+        let mut clock = LamportClock::new();
+        clock.observe(OpTimestamp {
+            lamport: u64::MAX,
+            actor: ActorId(2),
+        });
+        assert!(matches!(clock.tick(ActorId(1)), Err(OpError::Bounds(_))));
+        // Still exhausted on the next call: no stamp is ever issued twice.
+        assert!(clock.tick(ActorId(1)).is_err());
     }
 }

@@ -277,3 +277,32 @@ fn empty_log_gives_the_initial_state() {
     assert_eq!(state, initial);
     assert!(trace.entries.is_empty());
 }
+
+#[test]
+fn a_newer_entry_layout_is_reported_as_an_unsupported_version() {
+    // Version 2 followed by bytes that do not decode as an actor and an op.
+    let mut bytes = postcard::to_allocvec(&(FORMAT_VERSION + 1)).unwrap();
+    bytes.extend_from_slice(&[0xFF; 3]);
+    match replay_fail_fast(&bytes) {
+        Err(ReplayError::UnsupportedVersion { index, version }) => {
+            assert_eq!((index, version), (0, FORMAT_VERSION + 1));
+        }
+        other => panic!("expected a version error, got {other:?}"),
+    }
+}
+
+#[test]
+fn trailing_garbage_is_a_decode_error_at_the_next_index() {
+    let mut log = encode_log(&[(
+        ActorId(1),
+        MapOp::Insert {
+            key: "a".into(),
+            value: 1,
+        },
+    )]);
+    log.extend_from_slice(&[0xFF; 2]);
+    match replay_fail_fast(&log) {
+        Err(ReplayError::Decode { index, .. }) => assert_eq!(index, 1),
+        other => panic!("expected a decode error, got {other:?}"),
+    }
+}

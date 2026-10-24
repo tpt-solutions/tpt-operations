@@ -43,15 +43,37 @@ pub trait Verifier {
 pub struct SignedEntry {
     /// The entry bytes, as written by [`encode_entry`].
     pub bytes: Vec<u8>,
-    /// The [`Digest::version`] that covers `bytes`.
+    /// The author's sequence number for this entry. Receivers use it to refuse
+    /// replays, see [`crate::pipeline::ReplayGuard`].
+    pub seq: u64,
+    /// The [`Digest::version`] that covers the entry.
     pub digest_version: u8,
-    /// Signature over the digest of `bytes`.
+    /// Signature over the digest of the signing input. The input is a domain
+    /// tag, `digest_version`, `seq` and `bytes`, so none of them can be changed
+    /// without breaking the signature.
     pub signature: Vec<u8>,
 }
 
+/// Domain tag, so a signature made here cannot be valid for another protocol.
+const SIGNING_DOMAIN: &[u8] = b"tpt-operations/signed-entry\0";
+
+/// The bytes that are hashed and signed for an entry.
+fn signing_input(digest_version: u8, seq: u64, bytes: &[u8]) -> Vec<u8> {
+    let mut input = Vec::with_capacity(SIGNING_DOMAIN.len() + 1 + 8 + bytes.len());
+    input.extend_from_slice(SIGNING_DOMAIN);
+    input.push(digest_version);
+    input.extend_from_slice(&seq.to_be_bytes());
+    input.extend_from_slice(bytes);
+    input
+}
+
 /// Encodes `op` for `actor` and signs the result.
+///
+/// `seq` must increase with every entry the actor signs. Receivers refuse an
+/// entry whose `seq` is not above the last one they accepted from that actor.
 pub fn sign_op<O, D, G>(
     actor: ActorId,
+    seq: u64,
     op: &O,
     digest: &D,
     signer: &G,
@@ -63,10 +85,12 @@ where
 {
     let mut bytes = Vec::new();
     encode_entry(actor, op, &mut bytes)?;
-    let signature = signer.sign(&digest.digest(&bytes))?;
+    let digest_version = digest.version();
+    let signature = signer.sign(&digest.digest(&signing_input(digest_version, seq, &bytes)))?;
     Ok(SignedEntry {
         bytes,
-        digest_version: digest.version(),
+        seq,
+        digest_version,
         signature,
     })
 }
@@ -74,7 +98,9 @@ where
 /// Verifies `entry` and decodes its actor and operation.
 ///
 /// The signature is checked before any decoding, so unsigned or tampered
-/// bytes are never parsed.
+/// bytes are never parsed. The returned actor is only what the author claimed.
+/// The signature proves a key signed it, not that the key belongs to that
+/// actor, so the caller must check that. [`crate::pipeline::receive`] does.
 pub fn verify_entry<O, D, V>(
     entry: &SignedEntry,
     digest: &D,
@@ -92,19 +118,23 @@ where
             digest.version()
         )));
     }
-    verifier.verify(&digest.digest(&entry.bytes), &entry.signature)?;
+    let input = signing_input(entry.digest_version, entry.seq, &entry.bytes);
+    verifier.verify(&digest.digest(&input), &entry.signature)?;
 
-    let ((version, actor, op), rest) = postcard::take_from_bytes::<(u16, ActorId, O)>(&entry.bytes)
+    // The version is read first, so a newer layout is reported as such.
+    let (version, tail) = postcard::take_from_bytes::<u16>(&entry.bytes)
+        .map_err(|e| OpError::Serialization(format!("decode failed: {e}")))?;
+    if version != FORMAT_VERSION {
+        return Err(OpError::Serialization(format!(
+            "unsupported format version {version}"
+        )));
+    }
+    let ((actor, op), rest) = postcard::take_from_bytes::<(ActorId, O)>(tail)
         .map_err(|e| OpError::Serialization(format!("decode failed: {e}")))?;
     if !rest.is_empty() {
         return Err(OpError::Serialization(format!(
             "{} trailing bytes after entry",
             rest.len()
-        )));
-    }
-    if version != FORMAT_VERSION {
-        return Err(OpError::Serialization(format!(
-            "unsupported format version {version}"
         )));
     }
     Ok((actor, op))

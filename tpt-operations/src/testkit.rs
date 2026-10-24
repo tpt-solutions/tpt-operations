@@ -32,8 +32,9 @@ impl Rng {
 
     /// Uniform value in `lo..=hi`.
     pub fn range_i64(&mut self, lo: i64, hi: i64) -> i64 {
-        let span = (i128::from(hi) - i128::from(lo) + 1) as u64;
-        lo.wrapping_add((self.next_u64() % span) as i64)
+        // Widened to u128 so the full i64 range (a span of 2^64) does not wrap to zero.
+        let span = (i128::from(hi) - i128::from(lo) + 1) as u128;
+        lo.wrapping_add((u128::from(self.next_u64()) % span) as i64)
     }
 
     /// Fisher-Yates shuffle in place.
@@ -42,5 +43,27 @@ impl Rng {
             let j = self.below(i + 1);
             items.swap(i, j);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn range_i64_handles_the_full_range_without_dividing_by_zero() {
+        let mut rng = Rng::new(7);
+        for _ in 0..1_000 {
+            rng.range_i64(i64::MIN, i64::MAX);
+        }
+    }
+
+    #[test]
+    fn range_i64_stays_within_bounds() {
+        let mut rng = Rng::new(7);
+        for _ in 0..1_000 {
+            assert!((-3..=3).contains(&rng.range_i64(-3, 3)));
+        }
+        assert_eq!(rng.range_i64(5, 5), 5);
     }
 }
