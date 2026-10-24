@@ -2,7 +2,11 @@ use ::core::fmt;
 use alloc::string::String;
 
 /// Reasons an operation can fail. Each variant carries a human-readable message.
+///
+/// Marked `#[non_exhaustive]` so that new failure kinds, such as capability
+/// checks, can be added without breaking callers.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum OpError {
     /// The operation's inputs are invalid for the current state.
     Validation(String),

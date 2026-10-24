@@ -29,13 +29,29 @@ pub enum ReplayPolicy {
 
 /// Why a replay stopped.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ReplayError {
     /// The entry at `index` could not be decoded. This is always fatal.
-    Decode { index: usize, message: String },
+    Decode {
+        /// Position of the entry in the log, starting at 0.
+        index: usize,
+        /// What the decoder reported.
+        message: String,
+    },
     /// The entry at `index` uses a format version this build does not know.
-    UnsupportedVersion { index: usize, version: u16 },
+    UnsupportedVersion {
+        /// Position of the entry in the log, starting at 0.
+        index: usize,
+        /// The version tag found in the entry.
+        version: u16,
+    },
     /// The operation at `index` failed under [`ReplayPolicy::FailFast`].
-    Apply { index: usize, error: OpError },
+    Apply {
+        /// Position of the entry in the log, starting at 0.
+        index: usize,
+        /// The operation's error.
+        error: OpError,
+    },
 }
 
 impl core::fmt::Display for ReplayError {
@@ -57,6 +73,7 @@ impl std::error::Error for ReplayError {}
 
 /// The result for one log entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Outcome {
     /// The operation was applied.
     Applied,
