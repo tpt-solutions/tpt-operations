@@ -39,6 +39,21 @@ jobs:
             cargo run --quiet -p tpt-operations --all-features --example "$example"
           done
 
+  template:
+    name: Template builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Generate the template from a copy, pointing at this checkout, and test it
+        run: |
+          cp -r templates/state-and-ops "$RUNNER_TEMP/app"
+          cd "$RUNNER_TEMP/app"
+          sed -i "s/{{project-name}}/app/; s|git = \"https://github.com/tpt-solutions/tpt-operations\"|path = \"$GITHUB_WORKSPACE/tpt-operations\"|" Cargo.toml
+          cargo run
+          cargo test
+
   docs:
     name: Docs
     runs-on: ubuntu-latest

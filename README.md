@@ -9,6 +9,15 @@ Deterministic, reversible, CRDT-compatible operation engine for the TPT stack
 applied, and inverted for undo. See [`spec.txt`](spec.txt) for the design and
 [`TODO.md`](TODO.md) for the implementation checklist.
 
+## Start here
+
+- Run an example: `cargo run -p tpt-operations --example counter --features derive`
+  (all of them are listed in the [crate README](tpt-operations/README.md#examples)).
+- Start a project: [`templates/state-and-ops`](templates/state-and-ops) is a
+  `cargo-generate` template with a state, an operation, undo/redo and a
+  property test.
+- Read the [concepts](docs/concepts.md).
+
 ## Layout
 
 | Crate | Purpose |
@@ -30,6 +39,10 @@ applied, and inverted for undo. See [`spec.txt`](spec.txt) for the design and
 
 Runnable examples are in [`tpt-operations/examples/`](tpt-operations/examples),
 listed in the [crate README](tpt-operations/README.md#examples).
+
+Guides, in [`docs/`](docs): [concepts](docs/concepts.md),
+[why inverses are snapshots](docs/why-snapshot-inverses.md) and
+[migrating from hand-rolled undo](docs/migrating-from-hand-rolled-undo.md).
 
 See [`docs/integration.md`](docs/integration.md) for how these integration
 points connect to the sibling crates.

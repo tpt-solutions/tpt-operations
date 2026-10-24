@@ -128,8 +128,8 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [x] README snippet compiled as a doc-test (`ReadmeDoctests`, `derive` feature), `tpt_batch!` example no longer `ignore`, and a quick start in the crate docs
 - [x] Features decision table ("I want X, enable Y") in the README and crate docs
 - [x] `#[derive(SizeEstimate)]` (inline size only; structs, enums and generics)
-- [~] Ergonomics: done are `Display`, `From<u64>` and `Default` for `ActorId`; `IntoIterator`, `Extend`, `From<Vec>`, `ops()` and `into_ops()` for `OperationBatch`; `ReplayEngine::default()`; `HistoryStack::clear()`. Open: a `HistoryStack` peek, and taking `ActorId` by value consistently (breaking, so decide before 1.0)
-- [~] Doc-tests: the crate quick start, `tpt_batch!` and the README example. Open: `HistoryStack`, `ReplayEngine`, `CrdtCompatible`
+- [~] Ergonomics: done are `Display`, `From<u64>` and `Default` for `ActorId`; `IntoIterator`, `Extend`, `From<Vec>`, `ops()` and `into_ops()` for `OperationBatch`; `ReplayEngine::default()`; `HistoryStack::clear()`, `next_undo()` and `next_redo()`. Open: taking `ActorId` by value consistently (breaking, so decide before 1.0)
+- [x] Doc-tests: the crate quick start, `tpt_batch!`, `HistoryStack`, `ReplayEngine` and the README example
 - [x] README: says `derive` is off by default, and the install snippet is a git dependency
 
 ### Examples (`examples/`, each runnable with `cargo run --example`, built in CI)
@@ -144,12 +144,12 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 
 ### Tooling and templates
 - [x] Public `testkit` feature: `check_reversible`, `check_commutative`, `check_idempotent` and `check_replay_deterministic` return a `Failure` with the states involved. `assert_property` and `find_counterexample` use a seeded RNG and shrink (`shrink_i64`, `shrink_vec`). The `crdt::check_*` helpers still return `bool`
-- [ ] `cargo-generate` templates: `state-and-ops`, `collab-ledger`, `audit-log`
-- [ ] `cargo tpt-ops` CLI: `new`, `inspect`, `replay --trace`, `verify`, `check`
-- [ ] Structured `OpError` context (op, field, actor, source) with hints, and `From<postcard::Error>`
-- [ ] Derive: `SizeEstimate`, enum ops, `#[tpt(validate = path)]`, delta fields, generics; the derive error for unsupported shapes says "write the impl by hand"
-- [ ] Benches: replay throughput, sign/verify, history eviction
-- [ ] Docs: concepts guide (mdBook), "why snapshot inverses", "migrating from hand-rolled undo"
+- [~] `cargo-generate` template `templates/state-and-ops` is done and was built and tested from a generated copy (not through `cargo generate` itself, which is not installed here). `collab-ledger` and `audit-log` are not written: `cell_crdt` and `signed_audit_log` cover those cases as examples
+- [ ] `cargo tpt-ops` CLI: not started, and probably not worth it as designed. Operations are your own types, and the log holds postcard bytes with no schema, so a generic `inspect`, `replay` or `verify` cannot decode them. `new` is covered by the template. A library helper that builds a replay/inspect binary for your op type is the better shape, and `examples/event_sourcing_replay.rs` is that
+- [~] `From<postcard::Error> for OpError` is done. Structured context (op, field, actor, source) is open: it changes the shape of `OpError`, so decide before 1.0 (the enum is `#[non_exhaustive]`, so adding variants is allowed)
+- [~] Derive: `SizeEstimate`, `#[tpt(validate = path)]` and the "write the impl by hand" hints are done. Open: enum ops, delta fields and generics for `#[derive(Operation)]`
+- [x] Benches: `benches/throughput.rs` times history eviction, undo/redo, replay, commit and receive (a plain timing loop, no extra dependencies)
+- [x] Docs: `docs/concepts.md`, `docs/why-snapshot-inverses.md` and `docs/migrating-from-hand-rolled-undo.md` (plain markdown, no mdBook)
 
 ### Release hygiene
 - [~] Publish blockers: the git-pinned optional dependencies (`tpt-crypto`, `tpt-primitives`, dev-dep `tpt-replicate`) still block crates.io. Each now also has a `version`, so publishing works once they are released. The derive crate dependency has its `version`. Both crates have `publish = false` until then
@@ -163,6 +163,11 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [x] `spec.txt` has a banner listing where the code differs. The body is left as the original design
 - [x] The "Assumptions" boxes are ticked, and the `uuid` item is marked as not needed yet
 - [x] Commit the untracked work (`docs/`, `pipeline.rs`, `uir.rs`, tests)
+
+### Watch items (found during the review follow-ups)
+- [ ] Ed25519 in `tpt-crypto` is slow: about 2,000 signs and 700 verifies per second in `benches/throughput.rs` (release build). This is upstream, not this crate. Check whether `tpt-crypto` has an optimised path before anyone relies on receive throughput
+- [ ] `OperationBatch::apply` clones the state once per batch. That is fine for small states and a real cost for large ones. If it shows up, consider an undo log (record inverses, restore on failure) for operations that promise atomic `apply`, or advise `Arc` and persistent collections in the state
+- [ ] `ReplayGuard` requires each author's entries in order. A transport that reorders needs a buffer in front of `receive`. Decide whether this crate should offer one
 
 ### Ideas (post-1.0)
 - [ ] Time-travel debugger over `ReplayTrace`

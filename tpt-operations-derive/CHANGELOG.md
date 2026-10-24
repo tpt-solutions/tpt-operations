@@ -7,6 +7,8 @@ Nothing is published yet, so there are no released versions.
 ## [Unreleased]
 
 ### Added
+- `#[tpt(validate = path)]`: `validate` calls a function you name.
+- `#[derive(SizeEstimate)]`: the inline size of the type, for the history memory cap.
 - `#[derive(Operation)]` for structs. It implements `Operation<S>` with `apply`,
   `inverse` and a `validate` that accepts every operation.
 - `#[tpt(state = Type)]` container attribute, which names the state type `S`.

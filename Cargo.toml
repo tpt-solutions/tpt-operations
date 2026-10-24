@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["tpt-operations", "tpt-operations-derive"]
+# The template is a project to generate, not a member of this workspace.
+exclude = ["templates"]
 
 [workspace.package]
 version = "0.1.0"

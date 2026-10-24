@@ -7,6 +7,15 @@ Nothing is published yet, so there are no released versions.
 ## [Unreleased]
 
 ### Added
+- `#[tpt(validate = path)]` on the derive: `validate` calls a function you name.
+  The derive's errors for enums, tuple structs and generic types now say to write
+  the impl by hand.
+- `HistoryStack::next_undo` and `next_redo`.
+- `From<postcard::Error> for OpError` (`serde` feature).
+- A throughput benchmark (`cargo bench -p tpt-operations --features crypto`).
+- Guides in `docs/`: concepts, why inverses are snapshots, and migrating from
+  hand-rolled undo.
+- A `cargo-generate` template, `templates/state-and-ops`.
 - `testkit` feature: `check_reversible`, `check_commutative`, `check_idempotent`
   and `check_replay_deterministic` return a `Failure` that shows the states
   involved. `assert_property` and `find_counterexample` run a check on seeded

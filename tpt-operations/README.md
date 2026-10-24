@@ -74,6 +74,9 @@ table when there is one.
 | `signed_audit_log` | `crypto` | Commit and receive with Ed25519. Tampering, impersonation and replay are refused. |
 | `event_sourcing_replay` | `serde` | Write an op log, replay it, and read the audit trace. |
 
+To start a new project from a template, see
+[`templates/state-and-ops`](https://github.com/tpt-solutions/tpt-operations/tree/master/templates/state-and-ops).
+
 ## Features
 
 Pick features by what you need:
@@ -138,6 +141,10 @@ Nothing is published yet. Some optional dependencies are pinned to git
 revisions of the sibling `tpt-*` crates, so this crate cannot be published to
 crates.io until those are released.
 
+Guides: [concepts](https://github.com/tpt-solutions/tpt-operations/blob/master/docs/concepts.md),
+[why inverses are snapshots](https://github.com/tpt-solutions/tpt-operations/blob/master/docs/why-snapshot-inverses.md) and
+[migrating from hand-rolled undo](https://github.com/tpt-solutions/tpt-operations/blob/master/docs/migrating-from-hand-rolled-undo.md).
+
 See [`docs/integration.md`](https://github.com/tpt-solutions/tpt-operations/blob/master/docs/integration.md)
 for how these integration points connect to the sibling crates, and
 [`CHANGELOG.md`](CHANGELOG.md) for the release history.
@@ -147,6 +154,7 @@ for how these integration points connect to the sibling crates, and
 ```sh
 cargo test -p tpt-operations --all-features
 cargo build -p tpt-operations --examples --all-features
+cargo bench -p tpt-operations --features crypto   # rough throughput numbers
 cargo build -p tpt-operations --no-default-features --target thumbv7em-none-eabihf
 ```
 

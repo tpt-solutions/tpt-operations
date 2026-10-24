@@ -40,8 +40,9 @@ struct SetValue {
 - `apply` writes each non-ignored field into the state field of the same name.
 - `inverse` snapshots the pre-application state values into a new `Self`.
   Inverses are never written as expressions, so they cannot drift.
-- `validate` accepts every operation. To override it, write the trait impl by
-  hand.
+- `validate` accepts every operation by default. `#[tpt(validate = path)]` calls
+  `path(&self, &state, &actor)` instead. To change more than that, write the
+  trait impl by hand.
 - `Inverse` is `Self`.
 
 ## Attributes
@@ -49,6 +50,7 @@ struct SetValue {
 | Attribute | Where | Effect |
 | --- | --- | --- |
 | `#[tpt(state = Type)]` | struct | Required. The state type `S` that the operation mutates. |
+| `#[tpt(validate = path)]` | struct | A function `fn(&Op, &State, &ActorId) -> Result<(), OpError>` that `validate` calls. |
 | `#[tpt(ignore)]` | field | Excluded from `apply` and `inverse`. The field is carried as metadata. |
 | `#[tpt(commutative)]` | struct | Declares the `CrdtCompatible` commutative marker. Defaults to `false`. |
 | `#[tpt(associative)]` | struct | Declares the `CrdtCompatible` associative marker. Defaults to `false`. |
@@ -65,6 +67,9 @@ The derive rejects these inputs with a compile error:
 - Enums and unions. Only structs are supported.
 - Tuple structs. Use named fields, or a unit struct.
 - Generic types.
+
+Each message says to write the `Operation` impl by hand for those shapes. The
+`text_doc_undo` and `delta_op` examples in `tpt-operations` show what that looks like.
 - A missing `#[tpt(state = ...)]`.
 - Unknown container attributes.
 - Inverse overrides. Inverses are always snapshots of the pre-state, so write
