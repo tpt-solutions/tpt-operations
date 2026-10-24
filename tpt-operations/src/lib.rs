@@ -49,13 +49,13 @@
 //! let mut state = Counter { value: 0 };
 //! let mut history = HistoryStack::new();
 //!
-//! history.execute(&mut state, &tpt_batch![SetValue(5)], &actor)?;
+//! history.execute(&mut state, &tpt_batch![SetValue(5)], actor)?;
 //! assert_eq!(state.value, 5);
 //!
-//! history.undo(&mut state, &actor)?;
+//! history.undo(&mut state, actor)?;
 //! assert_eq!(state.value, 0);
 //!
-//! history.redo(&mut state, &actor)?;
+//! history.redo(&mut state, actor)?;
 //! assert_eq!(state.value, 5);
 //! # Ok::<(), OpError>(())
 //! ```

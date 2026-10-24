@@ -50,9 +50,9 @@ If a command only sets fields, `#[derive(Operation)]` writes all three methods.
 Replace your stack with `HistoryStack`:
 
 ```rust,ignore
-history.execute(&mut doc, &tpt_batch![op_a, op_b], &actor)?;   // one undo step
-history.undo(&mut doc, &actor)?;
-history.redo(&mut doc, &actor)?;
+history.execute(&mut doc, &tpt_batch![op_a, op_b], actor)?;   // one undo step
+history.undo(&mut doc, actor)?;
+history.redo(&mut doc, actor)?;
 ```
 
 A batch is atomic, so a command that fails halfway no longer leaves the document

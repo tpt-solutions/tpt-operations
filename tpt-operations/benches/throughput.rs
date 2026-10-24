@@ -76,7 +76,7 @@ fn main() {
         let mut state = Counter::default();
         for n in 0..EXECUTES as i64 {
             history
-                .execute(&mut state, &tpt_batch![Set(n)], &me)
+                .execute(&mut state, &tpt_batch![Set(n)], me)
                 .unwrap();
         }
         black_box(&state);
@@ -87,11 +87,11 @@ fn main() {
         let mut state = Counter::default();
         for n in 0..1_000 {
             history
-                .execute(&mut state, &tpt_batch![Set(n)], &me)
+                .execute(&mut state, &tpt_batch![Set(n)], me)
                 .unwrap();
         }
-        while history.undo(&mut state, &me).unwrap() {}
-        while history.redo(&mut state, &me).unwrap() {}
+        while history.undo(&mut state, me).unwrap() {}
+        while history.redo(&mut state, me).unwrap() {}
         black_box(&state);
     });
 

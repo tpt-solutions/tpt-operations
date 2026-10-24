@@ -8,8 +8,10 @@ Nothing is published yet, so there are no released versions.
 
 ### Added
 - `#[tpt(validate = path)]` on the derive: `validate` calls a function you name.
-  The derive's errors for enums, tuple structs and generic types now say to write
-  the impl by hand.
+  The derive's errors for enums and tuple structs now say to write the impl by
+  hand.
+- `#[derive(Operation)]` works on generic structs. Each type parameter gets a
+  `Clone` bound.
 - `HistoryStack::next_undo` and `next_redo`.
 - `From<postcard::Error> for OpError` (`serde` feature).
 - A throughput benchmark (`cargo bench -p tpt-operations --features crypto`).
@@ -59,6 +61,9 @@ Nothing is published yet, so there are no released versions.
 - `docs/integration.md`, covering the integration points with the sibling crates.
 
 ### Changed
+- `OperationBatch::apply` and `HistoryStack::execute`, `undo` and `redo` take the
+  `ActorId` by value instead of by reference. `Operation::validate` still takes
+  `&ActorId`.
 - `OperationBatch::apply` runs on a copy of the state and replaces the state only
   if every operation succeeds. A failing `apply` that had already changed part of
   a state no longer leaks that change, and rollback (with its `Conflict` error)

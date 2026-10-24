@@ -56,13 +56,13 @@ struct Step<O> {
 /// let mut history = HistoryStack::with_limits(2, 1 << 20);
 ///
 /// for n in 1..=3 {
-///     history.execute(&mut state, &tpt_batch![Set(n)], &me)?;
+///     history.execute(&mut state, &tpt_batch![Set(n)], me)?;
 /// }
 /// // The oldest step was evicted, so only two undos are left.
 /// assert_eq!(history.undo_len(), 2);
 ///
 /// assert!(history.next_undo().is_some()); // what undo would apply
-/// while history.undo(&mut state, &me)? {}
+/// while history.undo(&mut state, me)? {}
 /// assert_eq!(state.0, 1);
 /// # Ok::<(), OpError>(())
 /// ```
@@ -157,7 +157,7 @@ impl<O: SizeEstimate> HistoryStack<O> {
         &mut self,
         state: &mut S,
         batch: &OperationBatch<O>,
-        actor: &ActorId,
+        actor: ActorId,
     ) -> Result<(), OpError>
     where
         S: State,
@@ -179,7 +179,7 @@ impl<O: SizeEstimate> HistoryStack<O> {
     }
 
     /// Undoes the most recent step. Returns `Ok(false)` if there is nothing to undo.
-    pub fn undo<S>(&mut self, state: &mut S, actor: &ActorId) -> Result<bool, OpError>
+    pub fn undo<S>(&mut self, state: &mut S, actor: ActorId) -> Result<bool, OpError>
     where
         S: State,
         O: Operation<S, Inverse = O>,
@@ -206,7 +206,7 @@ impl<O: SizeEstimate> HistoryStack<O> {
     }
 
     /// Re-applies the most recently undone step. Returns `Ok(false)` if there is nothing to redo.
-    pub fn redo<S>(&mut self, state: &mut S, actor: &ActorId) -> Result<bool, OpError>
+    pub fn redo<S>(&mut self, state: &mut S, actor: ActorId) -> Result<bool, OpError>
     where
         S: State,
         O: Operation<S, Inverse = O>,
@@ -284,13 +284,13 @@ mod tests {
         let mut history = HistoryStack::new();
         let mut state = Counter { value: 0 };
 
-        history.execute(&mut state, &add(5), &actor()).unwrap();
+        history.execute(&mut state, &add(5), actor()).unwrap();
         assert_eq!(state.value, 5);
 
-        assert!(history.undo(&mut state, &actor()).unwrap());
+        assert!(history.undo(&mut state, actor()).unwrap());
         assert_eq!(state.value, 0);
 
-        assert!(history.redo(&mut state, &actor()).unwrap());
+        assert!(history.redo(&mut state, actor()).unwrap());
         assert_eq!(state.value, 5);
     }
 
@@ -300,13 +300,13 @@ mod tests {
         let mut state = Counter { value: 0 };
         assert!(history.next_undo().is_none() && history.next_redo().is_none());
 
-        history.execute(&mut state, &add(5), &actor()).unwrap();
+        history.execute(&mut state, &add(5), actor()).unwrap();
         // The pending undo is the inverse: a snapshot of the old value.
         let pending = history.next_undo().unwrap();
         assert_eq!(pending.ops(), [CounterOp::Set(0)]);
         assert_eq!(state.value, 5);
 
-        history.undo(&mut state, &actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
         assert!(history.next_undo().is_none());
         assert_eq!(history.next_redo().unwrap().ops(), [CounterOp::Set(5)]);
     }
@@ -315,9 +315,9 @@ mod tests {
     fn clear_forgets_both_stacks_and_keeps_the_state() {
         let mut history = HistoryStack::new();
         let mut state = Counter { value: 0 };
-        history.execute(&mut state, &add(1), &actor()).unwrap();
-        history.execute(&mut state, &add(2), &actor()).unwrap();
-        history.undo(&mut state, &actor()).unwrap();
+        history.execute(&mut state, &add(1), actor()).unwrap();
+        history.execute(&mut state, &add(2), actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
 
         history.clear();
         assert!(!history.can_undo() && !history.can_redo());
@@ -329,19 +329,19 @@ mod tests {
     fn undo_and_redo_on_empty_history_report_false() {
         let mut history: HistoryStack<CounterOp> = HistoryStack::new();
         let mut state = Counter { value: 0 };
-        assert!(!history.undo(&mut state, &actor()).unwrap());
-        assert!(!history.redo(&mut state, &actor()).unwrap());
+        assert!(!history.undo(&mut state, actor()).unwrap());
+        assert!(!history.redo(&mut state, actor()).unwrap());
     }
 
     #[test]
     fn new_operation_clears_redo() {
         let mut history = HistoryStack::new();
         let mut state = Counter { value: 0 };
-        history.execute(&mut state, &add(1), &actor()).unwrap();
-        history.undo(&mut state, &actor()).unwrap();
+        history.execute(&mut state, &add(1), actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
         assert!(history.can_redo());
 
-        history.execute(&mut state, &add(2), &actor()).unwrap();
+        history.execute(&mut state, &add(2), actor()).unwrap();
         assert!(!history.can_redo());
         assert_eq!(state.value, 2);
     }
@@ -352,11 +352,11 @@ mod tests {
         let mut state = Counter { value: 0 };
         let batch = crate::tpt_batch![CounterOp::Add(1), CounterOp::Set(10), CounterOp::Add(4)];
 
-        history.execute(&mut state, &batch, &actor()).unwrap();
+        history.execute(&mut state, &batch, actor()).unwrap();
         assert_eq!(state.value, 14);
         assert_eq!(history.undo_len(), 1);
 
-        history.undo(&mut state, &actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
         assert_eq!(state.value, 0);
         assert!(!history.can_undo());
     }
@@ -368,7 +368,7 @@ mod tests {
         // Set(5) succeeds, then Add(i64::MAX) overflows, so the Set must be rolled back.
         let batch = crate::tpt_batch![CounterOp::Set(5), CounterOp::Add(i64::MAX)];
 
-        history.execute(&mut state, &batch, &actor()).unwrap_err();
+        history.execute(&mut state, &batch, actor()).unwrap_err();
         assert_eq!(state.value, i64::MAX);
         assert_eq!(history.undo_len(), 0);
     }
@@ -378,7 +378,7 @@ mod tests {
         let mut history: HistoryStack<CounterOp> = HistoryStack::new();
         let mut state = Counter { value: 3 };
         history
-            .execute(&mut state, &OperationBatch::new(), &actor())
+            .execute(&mut state, &OperationBatch::new(), actor())
             .unwrap();
         assert_eq!(history.undo_len(), 0);
         assert_eq!(state.value, 3);
@@ -389,13 +389,13 @@ mod tests {
         let mut history = HistoryStack::with_limits(3, usize::MAX);
         let mut state = Counter { value: 0 };
         for _ in 0..5 {
-            history.execute(&mut state, &add(1), &actor()).unwrap();
+            history.execute(&mut state, &add(1), actor()).unwrap();
         }
         assert_eq!(history.undo_len(), 3);
         assert_eq!(state.value, 5);
 
         // Only the three newest steps can be undone. The state ends at 2.
-        while history.undo(&mut state, &actor()).unwrap() {}
+        while history.undo(&mut state, actor()).unwrap() {}
         assert_eq!(state.value, 2);
     }
 
@@ -404,7 +404,7 @@ mod tests {
         let mut history = HistoryStack::with_limits(3, usize::MAX);
         let mut state = Counter { value: 0 };
         for _ in 0..3 {
-            history.execute(&mut state, &add(1), &actor()).unwrap();
+            history.execute(&mut state, &add(1), actor()).unwrap();
         }
         assert_eq!(history.undo_len(), 3);
     }
@@ -415,7 +415,7 @@ mod tests {
         let mut history = HistoryStack::with_limits(usize::MAX, per_op * 2);
         let mut state = Counter { value: 0 };
         for _ in 0..4 {
-            history.execute(&mut state, &add(1), &actor()).unwrap();
+            history.execute(&mut state, &add(1), actor()).unwrap();
         }
         assert_eq!(history.undo_len(), 2);
         assert_eq!(history.undo_bytes(), per_op * 2);
@@ -425,7 +425,7 @@ mod tests {
     fn step_larger_than_byte_cap_is_applied_but_not_undoable() {
         let mut history = HistoryStack::with_limits(usize::MAX, 1);
         let mut state = Counter { value: 0 };
-        history.execute(&mut state, &add(7), &actor()).unwrap();
+        history.execute(&mut state, &add(7), actor()).unwrap();
         assert_eq!(state.value, 7);
         assert!(!history.can_undo());
     }
@@ -439,15 +439,15 @@ mod tests {
         state.entries.insert(key.clone(), 1);
         let remove = OperationBatch::from_ops(alloc::vec![MapOp::Remove { key: key.clone() }]);
 
-        history.execute(&mut state, &remove, &actor()).unwrap();
+        history.execute(&mut state, &remove, actor()).unwrap();
         let after_execute = history.undo_bytes();
-        history.undo(&mut state, &actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
         assert_eq!(history.undo_bytes(), 0);
-        history.redo(&mut state, &actor()).unwrap();
+        history.redo(&mut state, actor()).unwrap();
         // The step is the same size as when it was first recorded.
         assert_eq!(history.undo_bytes(), after_execute);
-        history.undo(&mut state, &actor()).unwrap();
-        history.redo(&mut state, &actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
+        history.redo(&mut state, actor()).unwrap();
         assert_eq!(history.undo_bytes(), after_execute);
     }
 
@@ -456,20 +456,20 @@ mod tests {
         let mut history = HistoryStack::with_limits(2, usize::MAX);
         let mut state = Counter { value: 0 };
         for _ in 0..2 {
-            history.execute(&mut state, &add(1), &actor()).unwrap();
+            history.execute(&mut state, &add(1), actor()).unwrap();
         }
-        history.undo(&mut state, &actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
         assert_eq!((history.undo_len(), history.redo_len()), (1, 1));
 
         // Redo pushes onto a full-minus-one stack, which stays within the cap.
-        history.redo(&mut state, &actor()).unwrap();
+        history.redo(&mut state, actor()).unwrap();
         assert_eq!((history.undo_len(), history.redo_len()), (2, 0));
 
         // Undo twice, redo twice: the cap of two is never exceeded.
-        history.undo(&mut state, &actor()).unwrap();
-        history.undo(&mut state, &actor()).unwrap();
-        history.redo(&mut state, &actor()).unwrap();
-        history.redo(&mut state, &actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
+        history.redo(&mut state, actor()).unwrap();
+        history.redo(&mut state, actor()).unwrap();
         assert!(history.undo_len() <= 2);
         assert_eq!(state.value, 2);
     }
@@ -478,11 +478,11 @@ mod tests {
     fn zero_limits_keep_no_history_but_still_apply() {
         let mut state = Counter { value: 0 };
         let mut by_count = HistoryStack::with_limits(0, usize::MAX);
-        by_count.execute(&mut state, &add(2), &actor()).unwrap();
+        by_count.execute(&mut state, &add(2), actor()).unwrap();
         assert!(!by_count.can_undo());
 
         let mut by_bytes = HistoryStack::with_limits(usize::MAX, 0);
-        by_bytes.execute(&mut state, &add(3), &actor()).unwrap();
+        by_bytes.execute(&mut state, &add(3), actor()).unwrap();
         assert!(!by_bytes.can_undo());
         assert_eq!(state.value, 5);
     }
@@ -491,12 +491,12 @@ mod tests {
     fn failed_execute_keeps_the_redo_stack() {
         let mut history = HistoryStack::new();
         let mut state = Counter { value: 0 };
-        history.execute(&mut state, &add(1), &actor()).unwrap();
-        history.undo(&mut state, &actor()).unwrap();
+        history.execute(&mut state, &add(1), actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
         assert_eq!(history.redo_len(), 1);
 
         state.value = i64::MAX;
-        history.execute(&mut state, &add(1), &actor()).unwrap_err();
+        history.execute(&mut state, &add(1), actor()).unwrap_err();
         assert_eq!(history.redo_len(), 1);
         assert_eq!(state.value, i64::MAX);
     }
@@ -512,7 +512,7 @@ mod tests {
         });
         failing.undo_bytes = 1;
         let mut near_max = Counter { value: 5 };
-        failing.undo(&mut near_max, &actor()).unwrap_err();
+        failing.undo(&mut near_max, actor()).unwrap_err();
         assert_eq!(near_max.value, 5);
         assert_eq!(failing.undo_len(), 1);
         assert_eq!(failing.undo_bytes(), 1);
@@ -526,7 +526,7 @@ mod tests {
             bytes: 1,
         });
         let mut state = Counter { value: 5 };
-        history.redo(&mut state, &actor()).unwrap_err();
+        history.redo(&mut state, actor()).unwrap_err();
         assert_eq!(state.value, 5);
         assert_eq!(history.redo_len(), 1);
     }
@@ -543,13 +543,13 @@ mod tests {
             key: "a".to_string(),
         }]);
 
-        history.execute(&mut state, &insert, &actor()).unwrap();
-        history.execute(&mut state, &remove, &actor()).unwrap();
+        history.execute(&mut state, &insert, actor()).unwrap();
+        history.execute(&mut state, &remove, actor()).unwrap();
         assert!(state.entries.is_empty());
 
-        history.undo(&mut state, &actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
         assert_eq!(state.entries.get("a"), Some(&1));
-        history.undo(&mut state, &actor()).unwrap();
+        history.undo(&mut state, actor()).unwrap();
         assert!(state.entries.is_empty());
     }
 }

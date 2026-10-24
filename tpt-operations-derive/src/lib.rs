@@ -20,6 +20,7 @@
 //!   `path(&self, &state, &actor)` instead, where `path` is a function returning
 //!   `Result<(), OpError>`. To change more than that, write the trait impl by hand.
 //! - `Inverse` is `Self`.
+//! - Generic structs work. Every type parameter gets a `Clone` bound.
 //! - `#[derive(SizeEstimate)]` implements `history::SizeEstimate` as the inline size
 //!   of the type, for the `HistoryStack` memory cap.
 //! - `#[tpt(commutative)]`, `#[tpt(associative)]` and `#[tpt(idempotent)]` on the
@@ -48,13 +49,6 @@ struct Field {
 }
 
 fn expand(input: &DeriveInput) -> Result<TokenStream2> {
-    if !input.generics.params.is_empty() {
-        return Err(Error::new_spanned(
-            &input.generics,
-            "Operation cannot be derived for generic types yet; write the `Operation` impl by hand",
-        ));
-    }
-
     let (state, markers, validate) = container_attrs(input)?;
     let Markers {
         commutative,
@@ -84,6 +78,13 @@ fn expand(input: &DeriveInput) -> Result<TokenStream2> {
         quote! { Self { #( #snapshot_names: #snapshot_values, )* } }
     };
 
+    // The generated code clones fields, so every type parameter must be `Clone`.
+    let mut generics = input.generics.clone();
+    for param in generics.type_params_mut() {
+        param.bounds.push(syn::parse_quote!(::core::clone::Clone));
+    }
+    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+
     let validate_body = match validate {
         Some(path) => quote! { #path(self, _state, _actor) },
         None => quote! { ::core::result::Result::Ok(()) },
@@ -91,7 +92,7 @@ fn expand(input: &DeriveInput) -> Result<TokenStream2> {
 
     Ok(quote! {
         #[allow(unused_variables)]
-        impl ::tpt_operations::core::Operation<#state> for #name {
+        impl #impl_generics ::tpt_operations::core::Operation<#state> for #name #type_generics #where_clause {
             type Inverse = Self;
 
             fn apply(
@@ -118,7 +119,7 @@ fn expand(input: &DeriveInput) -> Result<TokenStream2> {
             }
         }
 
-        impl ::tpt_operations::crdt::CrdtCompatible<#state> for #name {
+        impl #impl_generics ::tpt_operations::crdt::CrdtCompatible<#state> for #name #type_generics #where_clause {
             const IS_COMMUTATIVE: bool = #commutative;
             const IS_ASSOCIATIVE: bool = #associative;
             const IS_IDEMPOTENT: bool = #idempotent;

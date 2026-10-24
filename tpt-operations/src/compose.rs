@@ -74,7 +74,7 @@ impl<O> OperationBatch<O> {
     pub fn apply<S>(
         &self,
         state: &mut S,
-        actor: &ActorId,
+        actor: ActorId,
     ) -> Result<OperationBatch<O::Inverse>, OpError>
     where
         S: State,
@@ -83,7 +83,7 @@ impl<O> OperationBatch<O> {
         let mut next = state.clone();
         let mut inverses = Vec::with_capacity(self.ops.len());
         for op in &self.ops {
-            inverses.push(apply_step(op, &mut next, actor)?);
+            inverses.push(apply_step(op, &mut next, &actor)?);
         }
         *state = next;
         inverses.reverse();
@@ -161,7 +161,7 @@ impl<O> FromIterator<O> for OperationBatch<O> {
 ///
 /// let batch: OperationBatch<Set> = tpt_batch![Set(1), Set(2)];
 /// let mut state = Counter::default();
-/// batch.apply(&mut state, &ActorId(1)).unwrap();
+/// batch.apply(&mut state, ActorId(1)).unwrap();
 /// assert_eq!(state.0, 2);
 /// ```
 #[macro_export]
@@ -204,7 +204,7 @@ mod tests {
         let start = state.clone();
 
         let batch: OperationBatch<MapOp> = valid_map_prefix().into_iter().collect();
-        let undo = batch.apply(&mut state, &actor()).unwrap();
+        let undo = batch.apply(&mut state, actor()).unwrap();
 
         assert_eq!(state.entries.get("b"), Some(&2));
         assert_eq!(state.entries.get("c"), Some(&3));
@@ -212,7 +212,7 @@ mod tests {
 
         // The undo batch is the reversed list of inverses, so it restores the start.
         assert_eq!(undo.len(), batch.len());
-        undo.apply(&mut state, &actor()).unwrap();
+        undo.apply(&mut state, actor()).unwrap();
         assert_eq!(state, start);
     }
 
@@ -237,7 +237,7 @@ mod tests {
             let batch = OperationBatch::from_ops(ops);
 
             let mut state = start.clone();
-            let err = batch.apply(&mut state, &actor()).unwrap_err();
+            let err = batch.apply(&mut state, actor()).unwrap_err();
             assert_eq!(
                 err,
                 OpError::NotFound("missing".to_string()),
@@ -261,7 +261,7 @@ mod tests {
             let batch = OperationBatch::from_ops(ops);
 
             let mut state = start.clone();
-            let err = batch.apply(&mut state, &actor()).unwrap_err();
+            let err = batch.apply(&mut state, actor()).unwrap_err();
             assert!(matches!(err, OpError::Bounds(_)), "position {position}");
             assert_eq!(state, start, "state changed at position {position}");
         }
@@ -294,7 +294,7 @@ mod tests {
         let mut state = start.clone();
         let batch = OperationBatch::from_ops(vec![HalfApply]);
 
-        let err = batch.apply(&mut state, &actor()).unwrap_err();
+        let err = batch.apply(&mut state, actor()).unwrap_err();
         assert!(matches!(err, OpError::Conflict(_)));
         assert_eq!(state, start);
     }
@@ -309,7 +309,7 @@ mod tests {
             CounterOpOrHalf::Half(HalfApply),
         ]);
 
-        batch.apply(&mut state, &actor()).unwrap_err();
+        batch.apply(&mut state, actor()).unwrap_err();
         assert_eq!(state, start);
     }
 
@@ -344,9 +344,9 @@ mod tests {
         let start = state.clone();
         let batch = crate::tpt_batch![CounterOp::Add(3), CounterOp::Set(-8), CounterOp::Add(1)];
 
-        let undo = batch.apply(&mut state, &actor()).unwrap();
+        let undo = batch.apply(&mut state, actor()).unwrap();
         assert_eq!(state.value, -7);
-        undo.apply(&mut state, &actor()).unwrap();
+        undo.apply(&mut state, actor()).unwrap();
         assert_eq!(state, start);
     }
 

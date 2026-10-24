@@ -214,7 +214,7 @@ impl ReplayEngine {
             rest = tail;
 
             // A batch applies to a copy of the state, so a skipped entry leaves no trace in it.
-            match OperationBatch::from_ops(vec![op]).apply(&mut state, &actor) {
+            match OperationBatch::from_ops(vec![op]).apply(&mut state, actor) {
                 Ok(_) => trace.entries.push(TraceEntry {
                     index,
                     actor,

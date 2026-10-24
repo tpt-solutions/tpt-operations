@@ -128,7 +128,7 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [x] README snippet compiled as a doc-test (`ReadmeDoctests`, `derive` feature), `tpt_batch!` example no longer `ignore`, and a quick start in the crate docs
 - [x] Features decision table ("I want X, enable Y") in the README and crate docs
 - [x] `#[derive(SizeEstimate)]` (inline size only; structs, enums and generics)
-- [~] Ergonomics: done are `Display`, `From<u64>` and `Default` for `ActorId`; `IntoIterator`, `Extend`, `From<Vec>`, `ops()` and `into_ops()` for `OperationBatch`; `ReplayEngine::default()`; `HistoryStack::clear()`, `next_undo()` and `next_redo()`. Open: taking `ActorId` by value consistently (breaking, so decide before 1.0)
+- [x] Ergonomics: `ActorId` is taken by value by `OperationBatch::apply` and `HistoryStack` (`Operation::validate` keeps `&ActorId`). Done are `Display`, `From<u64>` and `Default` for `ActorId`; `IntoIterator`, `Extend`, `From<Vec>`, `ops()` and `into_ops()` for `OperationBatch`; `ReplayEngine::default()`; `HistoryStack::clear()`, `next_undo()` and `next_redo()`.
 - [x] Doc-tests: the crate quick start, `tpt_batch!`, `HistoryStack`, `ReplayEngine` and the README example
 - [x] README: says `derive` is off by default, and the install snippet is a git dependency
 
@@ -147,7 +147,7 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [~] `cargo-generate` template `templates/state-and-ops` is done and was built and tested from a generated copy (not through `cargo generate` itself, which is not installed here). `collab-ledger` and `audit-log` are not written: `cell_crdt` and `signed_audit_log` cover those cases as examples
 - [ ] `cargo tpt-ops` CLI: not started, and probably not worth it as designed. Operations are your own types, and the log holds postcard bytes with no schema, so a generic `inspect`, `replay` or `verify` cannot decode them. `new` is covered by the template. A library helper that builds a replay/inspect binary for your op type is the better shape, and `examples/event_sourcing_replay.rs` is that
 - [~] `From<postcard::Error> for OpError` is done. Structured context (op, field, actor, source) is open: it changes the shape of `OpError`, so decide before 1.0 (the enum is `#[non_exhaustive]`, so adding variants is allowed)
-- [~] Derive: `SizeEstimate`, `#[tpt(validate = path)]` and the "write the impl by hand" hints are done. Open: enum ops, delta fields and generics for `#[derive(Operation)]`
+- [~] Derive: `SizeEstimate`, `#[tpt(validate = path)]` and the "write the impl by hand" hints are done. Generic structs now derive too. Open: enum ops and delta fields for `#[derive(Operation)]` (hand-written impls cover them, see `text_doc_undo` and `delta_op`)
 - [x] Benches: `benches/throughput.rs` times history eviction, undo/redo, replay, commit and receive (a plain timing loop, no extra dependencies)
 - [x] Docs: `docs/concepts.md`, `docs/why-snapshot-inverses.md` and `docs/migrating-from-hand-rolled-undo.md` (plain markdown, no mdBook)
 

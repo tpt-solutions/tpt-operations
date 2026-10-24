@@ -93,7 +93,7 @@ fn main() -> Result<(), OpError> {
     history.execute(
         &mut doc,
         &tpt_batch![Replace::insert(0, "the cat sat on the mat")],
-        &me,
+        me,
     )?;
     println!("typed:    {:?}", doc.text);
 
@@ -116,22 +116,22 @@ fn main() -> Result<(), OpError> {
             text: "owl".into()
         },
     ];
-    history.execute(&mut doc, &replace_all, &me)?;
+    history.execute(&mut doc, &replace_all, me)?;
     println!("replaced: {:?}", doc.text);
 
     // A bad edit fails as a whole and leaves the document alone.
     let broken = tpt_batch![Replace::delete(0, 4), Replace::delete(500, 1)];
-    let err = history.execute(&mut doc, &broken, &me).unwrap_err();
+    let err = history.execute(&mut doc, &broken, me).unwrap_err();
     println!("refused:  {err} (document unchanged: {:?})", doc.text);
 
-    history.undo(&mut doc, &me)?;
+    history.undo(&mut doc, me)?;
     println!("undo:     {:?}", doc.text);
-    history.undo(&mut doc, &me)?;
+    history.undo(&mut doc, me)?;
     println!("undo:     {:?}", doc.text);
     assert!(doc.text.is_empty());
 
-    history.redo(&mut doc, &me)?;
-    history.redo(&mut doc, &me)?;
+    history.redo(&mut doc, me)?;
+    history.redo(&mut doc, me)?;
     assert_eq!(doc.text, "the owl dog on the rug");
     println!("redo x2:  {:?}", doc.text);
     Ok(())

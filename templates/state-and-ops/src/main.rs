@@ -105,17 +105,17 @@ fn main() -> Result<(), OpError> {
         ],
     ];
     for step in &steps {
-        history.execute(&mut notes, step, &me)?;
+        history.execute(&mut notes, step, me)?;
         println!("{:?}", notes.lines);
     }
 
-    history.undo(&mut notes, &me)?;
+    history.undo(&mut notes, me)?;
     println!("undo -> {:?}", notes.lines);
-    history.redo(&mut notes, &me)?;
+    history.redo(&mut notes, me)?;
     println!("redo -> {:?}", notes.lines);
 
     // A bad edit is refused and changes nothing.
-    let refused = history.execute(&mut notes, &tpt_batch![Edit::Remove { at: 9 }], &me);
+    let refused = history.execute(&mut notes, &tpt_batch![Edit::Remove { at: 9 }], me);
     println!("remove 9 -> {}", refused.unwrap_err());
     Ok(())
 }
@@ -166,7 +166,7 @@ mod tests {
             },
             Edit::Remove { at: 5 },
         ];
-        assert!(history.execute(&mut notes, &batch, &ActorId(1)).is_err());
+        assert!(history.execute(&mut notes, &batch, ActorId(1)).is_err());
         assert_eq!(notes, Notes::default());
         assert!(!history.can_undo());
     }

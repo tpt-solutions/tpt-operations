@@ -43,11 +43,11 @@ fn main() -> Result<(), OpError> {
     ];
     for (position, reason) in moves {
         let op = MoveCadVertex { position, reason };
-        history.execute(&mut vertex, &tpt_batch![op], &me)?;
+        history.execute(&mut vertex, &tpt_batch![op], me)?;
         println!("{reason:>12}: {:?}", vertex.position);
     }
 
-    while history.undo(&mut vertex, &me)? {}
+    while history.undo(&mut vertex, me)? {}
     println!("{:>12}: {:?}", "undone", vertex.position);
 
     assert_eq!(bits(&vertex), start, "byte-for-byte restore");

@@ -26,15 +26,15 @@ fn main() -> Result<(), OpError> {
     let mut history = HistoryStack::new();
 
     for value in [5, 8, 13] {
-        history.execute(&mut state, &tpt_batch![SetValue { value }], &me)?;
+        history.execute(&mut state, &tpt_batch![SetValue { value }], me)?;
         println!("set    -> {}", state.value);
     }
 
-    while history.undo(&mut state, &me)? {
+    while history.undo(&mut state, me)? {
         println!("undo   -> {}", state.value);
     }
 
-    while history.redo(&mut state, &me)? {
+    while history.redo(&mut state, me)? {
         println!("redo   -> {}", state.value);
     }
 

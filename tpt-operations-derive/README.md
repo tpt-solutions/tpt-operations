@@ -44,6 +44,7 @@ struct SetValue {
   `path(&self, &state, &actor)` instead. To change more than that, write the
   trait impl by hand.
 - `Inverse` is `Self`.
+- Generic structs work. Every type parameter gets a `Clone` bound.
 
 ## Attributes
 
@@ -66,7 +67,6 @@ The derive rejects these inputs with a compile error:
 
 - Enums and unions. Only structs are supported.
 - Tuple structs. Use named fields, or a unit struct.
-- Generic types.
 
 Each message says to write the `Operation` impl by hand for those shapes. The
 `text_doc_undo` and `delta_op` examples in `tpt-operations` show what that looks like.

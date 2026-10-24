@@ -120,13 +120,13 @@ fn derived_ops_work_with_batches_and_history() {
     .into_iter()
     .collect();
 
-    history.execute(&mut state, &batch, &actor()).unwrap();
+    history.execute(&mut state, &batch, actor()).unwrap();
     assert_eq!(state, Vehicle { x: 2.0, y: 3.0 });
 
-    history.undo(&mut state, &actor()).unwrap();
+    history.undo(&mut state, actor()).unwrap();
     assert_eq!(state, start);
 
-    history.redo(&mut state, &actor()).unwrap();
+    history.redo(&mut state, actor()).unwrap();
     assert_eq!(state, Vehicle { x: 2.0, y: 3.0 });
 }
 
@@ -236,5 +236,48 @@ mod validate_hook {
             SetLevel { level: 101 }.validate(&gauge, &ActorId(1)),
             Err(OpError::Bounds(_))
         ));
+    }
+}
+
+mod generics {
+    use tpt_operations::{
+        core::{Operation as _, State},
+        Operation,
+    };
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct Slot<T> {
+        item: T,
+        uses: u32,
+    }
+
+    impl<T: Clone> State for Slot<T> {}
+
+    #[derive(Debug, Clone, Operation)]
+    #[tpt(state = Slot<T>)]
+    struct Put<T> {
+        item: T,
+        #[tpt(ignore)]
+        why: &'static str,
+    }
+
+    #[test]
+    fn a_generic_struct_derives_and_round_trips() {
+        let mut slot = Slot {
+            item: String::from("old"),
+            uses: 3,
+        };
+        let before = slot.clone();
+        let op = Put {
+            item: String::from("new"),
+            why: "test",
+        };
+
+        let undo = op.inverse(&slot).unwrap();
+        slot.apply(&op).unwrap();
+        assert_eq!(slot.item, "new");
+        slot.apply(&undo).unwrap();
+        assert_eq!(slot, before);
+        assert_eq!(undo.why, "test");
     }
 }
