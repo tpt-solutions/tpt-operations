@@ -65,28 +65,28 @@ Source: `spec.txt`. Tick items as they are finished.
 ## Phase 3 — CRDT Compatibility & Replay (Weeks 6-8)
 ### Module D: `crdt`
 - [x] `CrdtCompatible<S>` marker trait (`IS_COMMUTATIVE`, `IS_ASSOCIATIVE`, `IS_IDEMPOTENT`). Generic over `S`, per the resolved assumption.
-- [ ] Derive or attribute support for declaring the markers (needs Module B)
+- [x] Derive or attribute support for declaring the markers: `#[tpt(commutative | associative | idempotent)]`, each defaulting to `false`
 - [x] Op timestamp / ordering metadata (`OpTimestamp` = Lamport counter + `ActorId`, plus `LamportClock`)
-- [~] Verification helpers that check the declared properties: `check_commutative` and `check_idempotent` are done. Associativity has no helper yet (sequential composition is always associative, so the check needs a batch-grouping definition first).
+- [~] Verification helpers that check the declared properties: `check_commutative` and `check_idempotent` are done. Associativity has no helper, and that is deliberate. Sequential application is associative by construction, so a check would only test the implementation against itself. The useful check is grouping of merges, which needs `tpt-replicate`. Revisit then.
 ### Module E (part 2): `history::ReplayEngine`
-- [ ] Reconstruct state from an empty initial state plus a serialized op stream
-- [ ] Deterministic error handling (fail fast vs. skip policy)
-- [ ] Replay trace output for auditors
-- [ ] Serialized op format with a version tag
+- [x] Reconstruct state from an empty initial state plus a serialized op stream (`history::replay`, `serde` feature)
+- [x] Deterministic error handling: `ReplayPolicy::FailFast` or `SkipInvalid`. Skipped ops roll back atomically. Decode errors always stop.
+- [x] Replay trace output for auditors (`ReplayTrace`, one line per entry via `Display`)
+- [x] Serialized op format with a version tag (`FORMAT_VERSION = 1`, entries are `(version, actor, op)` in postcard)
 ### Testing infrastructure
 - [~] Local stub of `tpt-testkit::property`: `src/testkit.rs` has a seeded xorshift RNG, ranges, and shuffle. No shrinking, no runner.
 - [~] Property test: `state == apply(inverse(state), state)`. Done with 100,000 cases per op type, not millions. `CASES` is the knob.
 - [x] Property test: shuffled application of commutative ops gives an identical state (compared by equality, not by hash yet)
 - [x] Property test: idempotent ops applied twice give an identical state
 - [ ] Property test: associativity for marked ops
-- [ ] Golden file: 1,000-op sequence, identical result on Linux, macOS and Windows (needs a serialized format)
+- [~] Golden file: 1,000-op sequence in `tests/golden/replay_1000.bin`, with a pinned state digest. Checked on Windows only. The Linux and macOS check runs in CI once pushed.
 - [x] Build fails if a reversibility test fails (CI gate). The property tests run under `cargo test`, which CI runs on all three OSes.
 - [ ] **Milestone:** `tpt-lattice` and `tpt-vertex` can use these ops for real-time collaboration
 
 ## Phase 4 — Ecosystem Integration & Crypto (Weeks 9-10)
-- [ ] `Signer`/`Verifier` trait boundary, with a feature-gated adapter for `tpt-crypto`
-- [ ] Hash the canonical `tpt-uir` bytes; postcard is the transmission format only
-- [ ] `SignedOperation` wrapper
+- [~] `Signer`/`Verifier`/`Digest` trait boundary (`crypto` feature). Only the traits are done. The real `tpt-crypto` adapter is not.
+- [ ] Hash the canonical `tpt-uir` bytes; postcard is the transmission format only. **Temporary deviation:** the digest currently covers the postcard bytes, because `tpt-uir` doesn't exist yet. Switch the digest input when the `uir` adapter lands, as the resolved question says.
+- [x] `SignedEntry` wrapper with `sign_op` and `verify_entry`. Verification runs before any decoding, and tests cover tampering and wrong keys (toy primitives only).
 - [ ] Adapter for the real `tpt-primitives` (`ActorId`, `Capability`) once available
 - [ ] Capability-based `validate`
 - [ ] `tpt-uir` node conversion (`Operation` <-> IR node)

@@ -42,6 +42,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - run: cargo build -p tpt-operations --no-default-features --target ${{ matrix.target }}
+      - run: cargo build -p tpt-operations --no-default-features --features serde,crypto --target ${{ matrix.target }}
 
   deny:
     name: cargo deny
