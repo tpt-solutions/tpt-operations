@@ -63,6 +63,16 @@
 //! With the `derive` feature, `#[derive(Operation)]` writes the operation for
 //! you when each field maps to a field of the state. See the README.
 //!
+//! # Things to know
+//!
+//! - [`compose::OperationBatch::apply`] runs on a copy of the state, so a failed
+//!   batch leaves the state alone even if an operation had changed part of it
+//!   before failing. [`core::State::apply`] on its own has no such guarantee.
+//! - The `uir` module is a stand-in: its payload is the postcard encoding of the
+//!   operation, and signatures cover postcard bytes (digest version 1), not a
+//!   canonical `tpt-uir` form.
+//! - [`core::Capability`] is a stub. Nothing checks it yet.
+//!
 //! # Features
 //!
 //! | I want to... | Enable |
@@ -72,6 +82,7 @@
 //! | Sign and verify entries, and use `pipeline::commit` / `receive` | `crypto` |
 //! | Map `ActorId` to a `tpt-primitives` principal | `primitives` |
 //! | Convert operations to `tpt-uir` nodes | `uir` |
+//! | Test my operations with property checks and shrinking | `testkit` |
 //! | Get `std::error::Error` for `OpError` | `std` |
 
 #![no_std]
@@ -115,5 +126,8 @@ struct ReadmeDoctests;
 
 #[cfg(test)]
 mod property_tests;
-#[cfg(test)]
+#[cfg(feature = "testkit")]
+#[cfg_attr(docsrs, doc(cfg(feature = "testkit")))]
+pub mod testkit;
+#[cfg(all(test, not(feature = "testkit")))]
 mod testkit;

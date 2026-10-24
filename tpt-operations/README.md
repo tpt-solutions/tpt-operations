@@ -85,6 +85,7 @@ Pick features by what you need:
 | Sign and verify entries, and use `pipeline::commit` / `receive` | `crypto` |
 | Map `ActorId` to a `tpt-primitives` principal | `primitives` |
 | Convert operations to `tpt-uir` nodes | `uir` |
+| Test my operations with property checks and shrinking | `testkit` |
 | Get `std::error::Error` for `OpError` | `std` |
 
 Details:
@@ -93,10 +94,33 @@ Details:
 | --- | --- | --- |
 | `std` | no | Enables `std::error::Error` for `OpError`. |
 | `derive` | no | Re-exports `#[derive(Operation)]` and `#[derive(SizeEstimate)]` from `tpt-operations-derive`. |
+| `testkit` | no | The `testkit` module: `check_reversible`, `check_commutative`, `check_idempotent`, `check_replay_deterministic` (with `serde`), and `assert_property` with a seeded RNG and shrinking. |
 | `serde` | no | Serialized, versioned op log (serde + postcard) for `ReplayEngine`. |
 | `crypto` | no | `tpt-crypto` adapter: SHA-256 digests and Ed25519 signatures. Enables `SignedEntry` and the `pipeline` module (`commit` / `receive`). |
 | `primitives` | no | `tpt-primitives` adapter: maps `ActorId` to and from `Principal`. Needs a target with `std`: `tpt-primitives` does not build for bare-metal targets. |
 | `uir` | no | `tpt-uir` node conversion (`to_node` / `from_node`). This is a stub: digests cover postcard bytes, not canonical `tpt-uir` bytes. |
+
+## Testing your own operations
+
+Enable the `testkit` feature and check that your operations keep their promises.
+The checks return a `Failure` that shows the states involved, and
+`assert_property` shrinks a failing input to a smaller one:
+
+```rust,ignore
+use tpt_operations::testkit::{assert_property, check_reversible, shrink_none};
+
+assert_property(
+    "my ops are reversible",
+    0xFEED,                                 // fixed seed: failures reproduce
+    10_000,                                 // cases
+    |rng| (rng.range_i64(-1_000, 1_000), random_op(rng)),
+    shrink_none,                            // or shrink_i64, shrink_vec
+    |(value, op)| check_reversible(&Counter { value: *value }, op),
+);
+```
+
+`tests/testkit.rs` has a complete version, including a check that catches an
+arithmetic inverse and shrinks the failing input.
 
 ## Rules
 

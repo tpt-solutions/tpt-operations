@@ -22,6 +22,7 @@ applied, and inverted for undo. See [`spec.txt`](spec.txt) for the design and
 | --- | --- | --- |
 | `std` | no | Enables `std::error::Error` for `OpError`. |
 | `derive` | no | Re-exports `#[derive(Operation)]` and `#[derive(SizeEstimate)]`. |
+| `testkit` | no | Property checks and a shrinking runner for testing your own operations. |
 | `serde` | no | Serialized, versioned op log (serde + postcard) for `ReplayEngine`. |
 | `crypto` | no | Real `tpt-crypto` adapter: SHA-256 digests and Ed25519 signatures. Enables `SignedEntry` and the `pipeline` module (`commit` / `receive`). |
 | `primitives` | no | Real `tpt-primitives` adapter: maps `ActorId` to and from `Principal`. Needs a target with `std`: `tpt-primitives` does not build for bare-metal targets. |

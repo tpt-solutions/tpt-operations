@@ -111,16 +111,16 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [x] A8: `HistoryStack` measures each stored batch. Redo is not capped on purpose: it only holds undone steps, so it cannot outgrow the undo history.
 - [x] Replace the `expect` in `primitives.rs` (`principal_of` returns `Result`)
 - [x] Fix the divide-by-zero in `testkit::Rng::range_i64` for the full `i64` range
-- [~] Stale "stub" docs in `core/identity.rs` refreshed. Still open: note in `lib.rs` that `uir` is a stub
+- [x] Stale "stub" docs in `core/identity.rs` refreshed, and the crate docs now list what to know (batch atomicity, `uir` and `Capability` are stand-ins)
 
 ### Missing tests
 - [x] Partial-apply op (the failed-rollback `Conflict` path no longer exists)
 - [x] Entry replay and actor spoofing through `receive`
 - [x] `LamportClock` exhaustion after `observe` with a huge stamp
-- [~] `HistoryStack`: zero limits, a failed `execute` leaves redo intact, failed undo/redo, and byte accounting are done. Eviction with redo is open.
+- [x] `HistoryStack`: zero limits, a failed `execute` leaves redo intact, failed undo/redo, byte accounting, and eviction with redo pending
 - [x] Replay: trailing garbage and a version mismatch with a changed layout (a partially applying op is covered by the batch tests)
-- [~] A failing `Signer` through `commit` is done. Trailing bytes in `verify_entry` and empty or oversized signatures are open.
-- [ ] `uir` with an empty node
+- [x] A failing `Signer` through `commit`, trailing bytes in `verify_entry`, and empty, short and oversized signatures
+- [x] `uir` with an empty node
 - [ ] Golden file on Linux and macOS (runs in CI once pushed)
 
 ### Adoption quick wins
@@ -143,7 +143,7 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [ ] `no_std` example. Needs its own bare-metal crate, since examples are std binaries. `tpt-primitives` also does not build for bare-metal targets, so `primitives` is std-only
 
 ### Tooling and templates
-- [ ] Public `testkit` feature: `assert_reversible`, `assert_commutative`, `assert_idempotent`, `assert_replay_deterministic`, with a seeded RNG, shrinking and a diagnostic result (not a bare `bool`). `check_commutative` and `check_idempotent` should say which step failed
+- [x] Public `testkit` feature: `check_reversible`, `check_commutative`, `check_idempotent` and `check_replay_deterministic` return a `Failure` with the states involved. `assert_property` and `find_counterexample` use a seeded RNG and shrink (`shrink_i64`, `shrink_vec`). The `crdt::check_*` helpers still return `bool`
 - [ ] `cargo-generate` templates: `state-and-ops`, `collab-ledger`, `audit-log`
 - [ ] `cargo tpt-ops` CLI: `new`, `inspect`, `replay --trace`, `verify`, `check`
 - [ ] Structured `OpError` context (op, field, actor, source) with hints, and `From<postcard::Error>`

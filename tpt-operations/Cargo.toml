@@ -28,6 +28,8 @@ uir = ["serde"]
 crypto = ["serde", "dep:tpt-crypto-hash", "dep:tpt-crypto-sig"]
 # Real tpt-primitives adapter: maps ActorId to and from Principal.
 primitives = ["dep:tpt-primitives"]
+# Property checks and a shrinking runner for testing your own operations (`testkit` module).
+testkit = []
 # Serialized op log (serde + postcard). Needed for ReplayEngine and the golden log.
 serde = ["dep:serde", "dep:postcard"]
 

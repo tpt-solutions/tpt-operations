@@ -59,3 +59,11 @@ fn unknown_variant_is_rejected() {
         Err(OpError::Serialization(_))
     ));
 }
+
+#[test]
+fn empty_node_is_rejected() {
+    assert!(matches!(
+        from_node::<CounterOp>(&UirNode::default()),
+        Err(OpError::Serialization(_))
+    ));
+}

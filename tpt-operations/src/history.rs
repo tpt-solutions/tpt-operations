@@ -392,6 +392,29 @@ mod tests {
     }
 
     #[test]
+    fn eviction_while_redo_is_pending_keeps_redo_and_the_caps() {
+        let mut history = HistoryStack::with_limits(2, usize::MAX);
+        let mut state = Counter { value: 0 };
+        for _ in 0..2 {
+            history.execute(&mut state, &add(1), &actor()).unwrap();
+        }
+        history.undo(&mut state, &actor()).unwrap();
+        assert_eq!((history.undo_len(), history.redo_len()), (1, 1));
+
+        // Redo pushes onto a full-minus-one stack, which stays within the cap.
+        history.redo(&mut state, &actor()).unwrap();
+        assert_eq!((history.undo_len(), history.redo_len()), (2, 0));
+
+        // Undo twice, redo twice: the cap of two is never exceeded.
+        history.undo(&mut state, &actor()).unwrap();
+        history.undo(&mut state, &actor()).unwrap();
+        history.redo(&mut state, &actor()).unwrap();
+        history.redo(&mut state, &actor()).unwrap();
+        assert!(history.undo_len() <= 2);
+        assert_eq!(state.value, 2);
+    }
+
+    #[test]
     fn zero_limits_keep_no_history_but_still_apply() {
         let mut state = Counter { value: 0 };
         let mut by_count = HistoryStack::with_limits(0, usize::MAX);

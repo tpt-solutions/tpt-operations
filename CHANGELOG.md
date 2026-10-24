@@ -7,6 +7,11 @@ Nothing is published yet, so there are no released versions.
 ## [Unreleased]
 
 ### Added
+- `testkit` feature: `check_reversible`, `check_commutative`, `check_idempotent`
+  and `check_replay_deterministic` return a `Failure` that shows the states
+  involved. `assert_property` and `find_counterexample` run a check on seeded
+  random inputs and shrink the first failing one. `shrink_i64`, `shrink_vec`
+  and `shrink_none` are the shrinkers.
 - `prelude` module: `use tpt_operations::prelude::*;` brings in the common names.
 - `#[derive(SizeEstimate)]` (`derive` feature), the inline size of the type.
 - Runnable examples: `counter`, `text_doc_undo`, `cell_crdt`, `cad_vertex`,

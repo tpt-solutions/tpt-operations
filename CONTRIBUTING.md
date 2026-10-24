@@ -31,6 +31,8 @@ little while.
 
 ## Changes
 
+- Test new operations with the `testkit` feature (`check_reversible` and the
+  others). `tpt-operations/tests/testkit.rs` shows how.
 - Add a test with every change. For a bug fix, write the test first and check
   that it fails.
 - Add an entry under Unreleased in `CHANGELOG.md` and in the crate's own

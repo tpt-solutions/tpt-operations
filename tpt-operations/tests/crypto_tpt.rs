@@ -103,3 +103,23 @@ fn entry_signed_by_another_key_is_rejected() {
     let entry = sign_op(ActorId(1), 1, &op, &Sha256, &signer).unwrap();
     assert!(verify_entry::<Note, _, _>(&entry, &Sha256, &verifier).is_err());
 }
+
+#[test]
+fn signatures_of_the_wrong_length_are_rejected() {
+    let signer = Ed25519Signer::from_seed([3; 32]);
+    let verifier = Ed25519Verifier::from_bytes(&signer.public_key()).unwrap();
+    let entry = sign_op(ActorId(1), 1, &Note { text: "x".into() }, &Sha256, &signer).unwrap();
+    assert_eq!(entry.signature.len(), 64);
+
+    let mut empty = entry.clone();
+    empty.signature.clear();
+    let mut short = entry.clone();
+    short.signature.truncate(63);
+    let mut long = entry.clone();
+    long.signature.push(0);
+
+    for bad in [empty, short, long] {
+        assert!(verify_entry::<Note, _, _>(&bad, &Sha256, &verifier).is_err());
+    }
+    assert!(verify_entry::<Note, _, _>(&entry, &Sha256, &verifier).is_ok());
+}

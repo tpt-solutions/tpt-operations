@@ -167,3 +167,13 @@ fn the_signature_covers_the_digest_version() {
     let result: Result<(ActorId, Note), _> = verify_entry(&entry, &TwoVersions(2), &signer);
     assert!(matches!(result, Err(OpError::Validation(_))));
 }
+
+#[test]
+fn bytes_after_the_entry_are_refused_even_when_correctly_signed() {
+    // Signing a pair stores an extra byte after the actor and the note.
+    let signer = ToySigner { key: 42 };
+    let entry = sign_op(ActorId(1), 1, &(note("x"), 7u8), &ToyDigest, &signer).unwrap();
+
+    let result: Result<(ActorId, Note), _> = verify_entry(&entry, &ToyDigest, &signer);
+    assert!(matches!(result, Err(OpError::Serialization(msg)) if msg.contains("trailing")));
+}
