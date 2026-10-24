@@ -25,6 +25,8 @@ pub use tpt_operations_derive::Operation;
 pub mod compose;
 pub mod core;
 pub mod crdt;
+#[cfg(feature = "crypto")]
+pub mod crypto;
 pub mod history;
 
 #[cfg(test)]
