@@ -256,3 +256,25 @@ fn a_failing_signer_produces_no_entry_and_leaves_state() {
     assert!(matches!(result, Err(OpError::Capability(_))));
     assert_eq!(state.value, 3);
 }
+
+#[test]
+fn a_refused_entry_names_the_author_and_sequence_number() {
+    let mut author = Counter::default();
+    let entry = commit(
+        &mut author,
+        &CounterOp::Add(1),
+        AUTHOR,
+        7,
+        &Sha256,
+        &author_signer(),
+    )
+    .unwrap()
+    .entry;
+
+    let mut peer = Counter { value: i64::MAX };
+    let error = recv(&mut peer, &entry, &mut ReplayGuard::new()).unwrap_err();
+    assert!(
+        matches!(&error, OpError::Bounds(m) if m.contains("seq 7") && m.contains("actor:1")),
+        "{error}"
+    );
+}

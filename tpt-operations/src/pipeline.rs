@@ -31,7 +31,8 @@ pub struct Committed<I> {
 ///
 /// Sequence numbers must strictly increase per author. Gaps are fine. Entries
 /// from one author must reach [`receive`] in order. A transport that can
-/// reorder them should buffer by author first.
+/// reorder them should buffer by author first. This crate does not buffer: gaps
+/// are allowed, so it cannot tell a late entry from a missing one.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ReplayGuard {
     last: BTreeMap<u64, u64>,
@@ -125,9 +126,10 @@ where
         )));
     }
     guard.check(author, entry.seq)?;
-    op.validate(state, &actor)?;
+    let from = || format!("entry seq {} from {author}", entry.seq);
+    op.validate(state, &actor).map_err(|e| e.context(from()))?;
     let mut next = state.clone();
-    op.apply(&mut next)?;
+    op.apply(&mut next).map_err(|e| e.context(from()))?;
     *state = next;
     guard.record(author, entry.seq);
     Ok(())

@@ -7,6 +7,8 @@ Nothing is published yet, so there are no released versions.
 ## [Unreleased]
 
 ### Added
+- `OpError::context`, which prefixes the message and keeps the variant.
+  `pipeline::receive` uses it to name the author and sequence number.
 - `history::ReplayCursor` (`serde` feature): step forward and back through a log,
   seek to any position, and skip entries that fail. Stepping back uses the
   stored inverses, so it does not replay from the start.

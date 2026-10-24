@@ -146,7 +146,7 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [x] Public `testkit` feature: `check_reversible`, `check_commutative`, `check_idempotent` and `check_replay_deterministic` return a `Failure` with the states involved. `assert_property` and `find_counterexample` use a seeded RNG and shrink (`shrink_i64`, `shrink_vec`). The `crdt::check_*` helpers still return `bool`
 - [~] `cargo-generate` template `templates/state-and-ops` is done and was built and tested from a generated copy (not through `cargo generate` itself, which is not installed here). `collab-ledger` and `audit-log` are not written: `cell_crdt` and `signed_audit_log` cover those cases as examples
 - [ ] `cargo tpt-ops` CLI: not started, and probably not worth it as designed. Operations are your own types, and the log holds postcard bytes with no schema, so a generic `inspect`, `replay` or `verify` cannot decode them. `new` is covered by the template. A library helper that builds a replay/inspect binary for your op type is the better shape, and `examples/event_sourcing_replay.rs` is that
-- [~] `From<postcard::Error> for OpError` is done. Structured context (op, field, actor, source) is open: it changes the shape of `OpError`, so decide before 1.0 (the enum is `#[non_exhaustive]`, so adding variants is allowed)
+- [x] `From<postcard::Error> for OpError`, and `OpError::context` (keeps the variant, prefixes the message), which `pipeline::receive` uses to name the author and sequence number. Decided: no structured fields on the variants, because that would change every match on `OpError`
 - [~] Derive: `SizeEstimate`, `#[tpt(validate = path)]` and the "write the impl by hand" hints are done. Generic structs now derive too. Open: enum ops and delta fields for `#[derive(Operation)]` (hand-written impls cover them, see `text_doc_undo` and `delta_op`)
 - [x] Benches: `benches/throughput.rs` times history eviction, undo/redo, replay, commit and receive (a plain timing loop, no extra dependencies)
 - [x] Docs: `docs/concepts.md`, `docs/why-snapshot-inverses.md` and `docs/migrating-from-hand-rolled-undo.md` (plain markdown, no mdBook)
@@ -167,14 +167,14 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 ### Watch items (found during the review follow-ups)
 - [ ] Ed25519 in `tpt-crypto` is slow: about 2,000 signs and 700 verifies per second in `benches/throughput.rs` (release build). This is upstream, not this crate. Check whether `tpt-crypto` has an optimised path before anyone relies on receive throughput
 - [ ] `OperationBatch::apply` clones the state once per batch. That is fine for small states and a real cost for large ones. If it shows up, consider an undo log (record inverses, restore on failure) for operations that promise atomic `apply`, or advise `Arc` and persistent collections in the state
-- [ ] `ReplayGuard` requires each author's entries in order. A transport that reorders needs a buffer in front of `receive`. Decide whether this crate should offer one
+- [x] `ReplayGuard` requires each author's entries in order. A transport that reorders needs a buffer in front of `receive`. Decided: no. Sequence numbers allow gaps, so a buffer cannot know what is missing without a stricter rule, and ordering is the transport's job (`tpt-replicate` delivers causally). This is stated in the `ReplayGuard` docs
 
 ### Ideas (post-1.0)
 - [x] Time-travel over a replay log: `history::ReplayCursor` steps forward and back, seeks, and skips failing entries. A graphical or interactive debugger on top of it is not built
-- [ ] `#[tpt(test)]` on the derive, generating the reversible, commutative and idempotent property tests
-- [ ] Log compaction and signed snapshot checkpoints (uses digest versioning)
-- [ ] Replay-and-verify against a golden digest as a CI regression gate
-- [ ] Tamper-evident log chaining (each entry commits to the previous digest)
+- [ ] `#[tpt(test)]` on the derive. Deferred: the `testkit` feature covers this by hand, and generating tests needs a way to build random states and operations, which the derive cannot know
+- [ ] Log compaction and signed snapshot checkpoints. Deferred to after 1.0: it adds a new entry kind to the log format
+- [ ] Replay-and-verify against a golden digest as a CI regression gate. `tests/replay.rs` already does this for the crate's own log; a reusable helper waits for a user who wants one
+- [ ] Tamper-evident log chaining (each entry commits to the previous digest). Deferred to after 1.0: it changes the signed payload and the entry format
 - [ ] Capability-gated ops once `tpt-primitives` has a real caller (decide the `validate` signature before 1.0)
 
 ## Resolved questions
