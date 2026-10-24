@@ -9,12 +9,12 @@ Source: `spec.txt`. Tick items as they are finished.
 - Approved to proceed (2026-10-25). Phase 0 and Module A/B skeleton are implemented; the rest is open.
 
 ## Assumptions (veto any of these)
-- [ ] Rust edition 2021, stable toolchain, MSRV pinned in `rust-toolchain.toml`
-- [ ] `#![no_std]` + `alloc` by default; `std` is an optional feature
-- [ ] Serialization is `serde` (no_std) with postcard for the wire; hashing goes through canonical `tpt-uir`
-- [ ] Add the `uuid` crate (v7, no_std)
-- [ ] `#![forbid(unsafe_code)]`, no C-FFI deps (enforced by `cargo deny`)
-- [ ] The spec's trait sketches are adjusted where they don't compile (e.g. `CrdtCompatible: Operation` needs a generic `S`; `State::apply` taking `&impl Operation<Self>`)
+- [x] Rust edition 2021, stable toolchain, MSRV pinned in `rust-toolchain.toml`
+- [x] `#![no_std]` + `alloc` by default; `std` is an optional feature
+- [~] Serialization is `serde` (no_std) with postcard for the wire. Hashing covers postcard bytes for now, not canonical `tpt-uir` (see Phase 4)
+- [~] Add the `uuid` crate (v7, no_std). Not added: nothing needs an ID type yet
+- [x] `#![forbid(unsafe_code)]`, no C-FFI deps (enforced by `cargo deny`)
+- [x] The spec's trait sketches are adjusted where they don't compile (e.g. `CrdtCompatible: Operation` needs a generic `S`; `State::apply` taking `&impl Operation<Self>`)
 
 ## Phase 0 — Scaffold
 - [x] Create the workspace `Cargo.toml`
@@ -152,17 +152,17 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [ ] Docs: concepts guide (mdBook), "why snapshot inverses", "migrating from hand-rolled undo"
 
 ### Release hygiene
-- [ ] Publish blockers: git-pinned optional dependencies (`tpt-crypto`, `tpt-primitives`, dev-dep `tpt-replicate`); add a `version` to the derive crate's path dependency
-- [ ] Per-crate `LICENSE-MIT` and `LICENSE-APACHE` (the README links break on crates.io)
-- [ ] `[package.metadata.docs.rs]` (`all-features`, `--cfg docsrs`) and `doc(cfg)` on gated modules
-- [ ] Cargo metadata (`homepage`, `documentation`, `authors`) and `exclude` for `tests/golden` and `tests/ui`; consider `publish = false` until ready
-- [ ] `SECURITY.md`, `CONTRIBUTING.md`, issue and PR templates, README badges
-- [~] CI: examples run and the no_std job covers `uir` and `derive` (done, not yet run on GitHub). `primitives` cannot be built for bare-metal targets, because `tpt-primitives` pulls in `std` crates. Open: MSRV job, `cargo doc -D warnings`, `cargo semver-checks`, `cargo package --dry-run`, scheduled `cargo-deny` advisories run, Dependabot, `rust-cache`, `permissions:` and SHA-pinned actions
-- [ ] `deny.toml`: add `[graph]` targets and advisories settings, and review the license allow-list (`Unicode-DFS-2016`, `Zlib`, `MPL-2.0`, `CC0-1.0`). The `-sys` ban list misses crates that bundle C without that name
-- [ ] Remove the invalid `msrv` key from `rust-toolchain.toml` (the real MSRV is `rust-version` in `Cargo.toml`)
-- [ ] Reconcile `spec.txt` with the code (`inverse` return type, generic `CrdtCompatible`, derive attributes, pipeline order) or mark it historical
-- [ ] Tick the stale "Assumptions" boxes, and fix the `uuid` item (ticked as resolved but not in any `Cargo.toml`)
-- [ ] Commit the untracked work (`docs/`, `pipeline.rs`, `uir.rs`, tests)
+- [~] Publish blockers: the git-pinned optional dependencies (`tpt-crypto`, `tpt-primitives`, dev-dep `tpt-replicate`) still block crates.io. Each now also has a `version`, so publishing works once they are released. The derive crate dependency has its `version`. Both crates have `publish = false` until then
+- [x] Per-crate `LICENSE-MIT` and `LICENSE-APACHE`, and the README links point at them
+- [x] `[package.metadata.docs.rs]` (`all-features`, `--cfg docsrs`) and `doc(cfg)` on gated modules. Not checked on nightly
+- [x] Cargo metadata (`homepage`) and `exclude` for `tests/golden` and `tests/ui`, and `publish = false` until ready. No `authors`, `documentation` defaults to docs.rs
+- [x] `SECURITY.md`, `CONTRIBUTING.md`, issue and PR templates, README badges. `SECURITY.md` points at GitHub private vulnerability reporting, so enable that in the repo settings
+- [~] CI: done are the examples run, the no_std job for `uir` and `derive`, a `cargo doc -D warnings` job, a weekly schedule (for `cargo-deny` advisories), `permissions: contents: read`, `rust-cache`, and Dependabot. None has run on GitHub yet. `primitives` cannot be built for bare-metal targets, because `tpt-primitives` pulls in `std` crates. There is no separate MSRV job: `rust-version` equals the pinned toolchain, so add one when they differ. Open: `cargo semver-checks` (needs a published baseline), `cargo package --dry-run` in CI (blocked by the git dependencies), SHA-pinned actions
+- [x] `deny.toml`: `[graph] all-features`, `unmaintained = "workspace"`, and `Zlib` and `CC0-1.0` allowed. `cargo deny check` passes locally. Still true: the `-sys` ban list misses crates that bundle C without that name. The git dependencies needed a `version` to pass the wildcard ban
+- [x] `rust-toolchain.toml` has no `msrv` key (checked). The MSRV is `rust-version` in `Cargo.toml`
+- [x] `spec.txt` has a banner listing where the code differs. The body is left as the original design
+- [x] The "Assumptions" boxes are ticked, and the `uuid` item is marked as not needed yet
+- [x] Commit the untracked work (`docs/`, `pipeline.rs`, `uir.rs`, tests)
 
 ### Ideas (post-1.0)
 - [ ] Time-travel debugger over `ReplayTrace`
@@ -177,4 +177,4 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [x] An optional, separate merge trait (e.g. `MergeableState`) exists only for CRDT cases such as `tpt-lattice` cell states.
 - [x] `Operation` gets an associated type `Inverse`. `inverse` returns `Self::Inverse`. `#[derive(Operation)]` defaults to `Inverse = Self`.
 - [x] Hash the canonical `tpt-uir` form of the op. Postcard is the wire format only, and signatures cover the hash, not the postcard bytes.
-- [x] `UuidV7` comes from the `uuid` crate (no_std, feature `v7`).
+- [x] `UuidV7` would come from the `uuid` crate (no_std, feature `v7`). It is not added yet, because nothing needs an ID type.

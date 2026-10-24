@@ -4,11 +4,26 @@
 # cargo-deny does not support wildcards in `bans.deny`, so the list below is
 # explicit. Extend it whenever a new `-sys` crate shows up in the tree.
 
+# Check every feature, so optional dependencies are covered.
+[graph]
+all-features = true
+
 [advisories]
 yanked = "deny"
+unmaintained = "workspace"
 
 [licenses]
-allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0"]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+]
 confidence-threshold = 0.9
 
 [bans]

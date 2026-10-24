@@ -7,6 +7,12 @@ license.workspace = true
 description = "Deterministic, reversible, CRDT-compatible operation engine for the TPT stack."
 readme = "README.md"
 repository = "https://github.com/tpt-solutions/tpt-operations"
+homepage = "https://github.com/tpt-solutions/tpt-operations"
+# Not published yet: the optional `tpt-crypto` and `tpt-primitives` dependencies are
+# git dependencies, which crates.io refuses. Remove this line once they are released.
+publish = false
+# The golden log and the compile-fail fixtures are for this repository's tests only.
+exclude = ["tests/golden", "tests/ui"]
 keywords = ["crdt", "undo", "event-sourcing", "replay", "deterministic"]
 categories = ["data-structures", "no-std", "rust-patterns"]
 
@@ -28,11 +34,11 @@ serde = ["dep:serde", "dep:postcard"]
 [dependencies]
 postcard = { version = "1.1.3", default-features = false, features = ["alloc"], optional = true }
 serde = { version = "1.0.229", default-features = false, features = ["derive", "alloc"], optional = true }
-tpt-operations-derive = { path = "../tpt-operations-derive", optional = true }
+tpt-operations-derive = { version = "0.1.0", path = "../tpt-operations-derive", optional = true }
 # Pinned to the tpt-crypto commit that was checked when the adapter was written.
-tpt-crypto-hash = { git = "https://github.com/tpt-solutions/tpt-crypto", rev = "8b73d9b13cb1432547a03dd58d8cf8d6231e3784", default-features = false, optional = true }
-tpt-primitives = { git = "https://github.com/tpt-solutions/tpt-primitives", rev = "336292c8a6f623768c8db5eb7a3082fa407c98f8", optional = true }
-tpt-crypto-sig = { git = "https://github.com/tpt-solutions/tpt-crypto", rev = "8b73d9b13cb1432547a03dd58d8cf8d6231e3784", default-features = false, optional = true }
+tpt-crypto-hash = { version = "0.1.0", git = "https://github.com/tpt-solutions/tpt-crypto", rev = "8b73d9b13cb1432547a03dd58d8cf8d6231e3784", default-features = false, optional = true }
+tpt-primitives = { version = "0.1.0", git = "https://github.com/tpt-solutions/tpt-primitives", rev = "336292c8a6f623768c8db5eb7a3082fa407c98f8", optional = true }
+tpt-crypto-sig = { version = "0.1.0", git = "https://github.com/tpt-solutions/tpt-crypto", rev = "8b73d9b13cb1432547a03dd58d8cf8d6231e3784", default-features = false, optional = true }
 
 # Each example says how to run it in its header. The ones that need a feature
 # are skipped by a plain `cargo build --examples`.
@@ -52,6 +58,10 @@ required-features = ["crypto"]
 name = "event_sourcing_replay"
 required-features = ["serde"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [lints]
 workspace = true
 
@@ -59,4 +69,4 @@ workspace = true
 trybuild = "1.0.122"
 # Merge executor for the associativity (grouping) property. Pinned to the origin/master commit
 # that was checked. Its core has no dependencies.
-tpt-replicate = { git = "https://github.com/tpt-solutions/tpt-replicate", rev = "1203d9ec71fe7ecdb15be5aa6f6a82a9a063b5c1", default-features = false }
+tpt-replicate = { version = "1.0.0", git = "https://github.com/tpt-solutions/tpt-replicate", rev = "1203d9ec71fe7ecdb15be5aa6f6a82a9a063b5c1", default-features = false }

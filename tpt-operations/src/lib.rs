@@ -76,6 +76,7 @@
 
 #![no_std]
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 extern crate alloc;
 
@@ -86,20 +87,25 @@ extern crate std;
 extern crate self as tpt_operations;
 
 #[cfg(feature = "derive")]
+#[cfg_attr(docsrs, doc(cfg(feature = "derive")))]
 pub use tpt_operations_derive::{Operation, SizeEstimate};
 
 pub mod compose;
 pub mod core;
 pub mod crdt;
 #[cfg(feature = "crypto")]
+#[cfg_attr(docsrs, doc(cfg(feature = "crypto")))]
 pub mod crypto;
 pub mod history;
 #[cfg(feature = "crypto")]
+#[cfg_attr(docsrs, doc(cfg(feature = "crypto")))]
 pub mod pipeline;
 pub mod prelude;
 #[cfg(feature = "primitives")]
+#[cfg_attr(docsrs, doc(cfg(feature = "primitives")))]
 pub mod primitives;
 #[cfg(feature = "uir")]
+#[cfg_attr(docsrs, doc(cfg(feature = "uir")))]
 pub mod uir;
 
 // Compiles the README's example as a doc-test. It needs the derive macro.

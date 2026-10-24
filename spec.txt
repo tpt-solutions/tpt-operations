@@ -1,4 +1,17 @@
 Design Spec: tpt-operations (Layer 2)
+
+NOTE: This is the original design, kept for history. The code differs in these places,
+and the code is right where they disagree. See README.md, docs/integration.md and TODO.md.
+- State has only `apply` and no merge. Merging is an opt-in `MergeableState` trait.
+- `Operation::inverse` returns an associated `Self::Inverse` and takes the pre-state.
+- `CrdtCompatible` is generic over the state: `CrdtCompatible<S>`.
+- The derive supports "set these fields" structs only. `#[tpt(inverse = "...")]` is a
+  compile error, because inverses are snapshots. Delta ops are written by hand.
+- The action flow is Validate, Inverse, Serialize, Sign, Apply (`pipeline::commit`), and
+  Verify, Decode, Validate, Apply on receipt (`pipeline::receive`).
+- Entries carry a signed sequence number, and `receive` checks the author and refuses replays.
+- Hashing covers the postcard bytes (digest version 1), not canonical tpt-uir bytes yet.
+- Dependencies `tpt-uir`, `tpt-testkit`, `UuidV7` are not wired in. See TODO.md.
 1. Mission & Scope
 Mission: To provide a unified, pure-Rust, deterministic operation and command modeling engine. It standardizes how state mutations are defined, validated, applied, inverted (undo/redo), and serialized across the TPT ecosystem, enabling seamless event sourcing, audit trails, and CRDT-based real-time collaboration.
 Scope:

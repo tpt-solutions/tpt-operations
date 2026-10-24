@@ -131,5 +131,5 @@ workspace's `rust-toolchain.toml`.
 
 ## License
 
-Licensed under either of [MIT](../LICENSE-MIT) or [Apache-2.0](../LICENSE-APACHE)
+Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE)
 at your option.

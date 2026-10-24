@@ -11,8 +11,10 @@ use crate::{
 use alloc::{collections::VecDeque, vec::Vec};
 
 #[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 pub mod replay;
 #[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 pub use replay::{ReplayEngine, ReplayError, ReplayPolicy, ReplayTrace};
 
 /// Default cap on the number of undo steps.

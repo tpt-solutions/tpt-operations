@@ -1,5 +1,9 @@
 # tpt-operations
 
+[![CI](https://github.com/tpt-solutions/tpt-operations/actions/workflows/ci.yml/badge.svg)](https://github.com/tpt-solutions/tpt-operations/actions/workflows/ci.yml)
+![MSRV](https://img.shields.io/badge/MSRV-1.97-blue)
+![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)
+
 Deterministic, reversible, CRDT-compatible operation engine for the TPT stack
 (Layer 2). Every state mutation is an `Operation` that can be validated,
 applied, and inverted for undo. See [`spec.txt`](spec.txt) for the design and
@@ -34,6 +38,11 @@ points connect to the sibling crates.
 - Pure Rust. `#![forbid(unsafe_code)]`, no C-FFI dependencies (checked by `cargo deny`).
 - Inverses are built from the **pre-application snapshot**, never by arithmetic on
   the operation's inputs. See the Inverse Drift rule in the `Operation` docs.
+
+## Contributing and security
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the rules and the checks to run, and
+[`SECURITY.md`](SECURITY.md) for how to report a vulnerability.
 
 ## Development
 

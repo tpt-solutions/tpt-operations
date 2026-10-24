@@ -87,5 +87,5 @@ The `trybuild` tests in `tpt-operations/tests/ui/` cover the compile errors abov
 
 ## License
 
-Licensed under either of [MIT](../LICENSE-MIT) or [Apache-2.0](../LICENSE-APACHE)
+Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE)
 at your option.

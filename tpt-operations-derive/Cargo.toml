@@ -7,6 +7,10 @@ license.workspace = true
 description = "Derive macros for tpt-operations."
 readme = "README.md"
 repository = "https://github.com/tpt-solutions/tpt-operations"
+homepage = "https://github.com/tpt-solutions/tpt-operations"
+# Not published yet. It ships together with `tpt-operations`, which cannot be published
+# until its git dependencies are released. Remove this line then.
+publish = false
 keywords = ["derive", "proc-macro", "operation", "undo", "crdt"]
 categories = ["development-tools::procedural-macro-helpers"]
 

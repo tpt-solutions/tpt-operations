@@ -3,6 +3,12 @@ name: CI
 on:
   push:
   pull_request:
+  schedule:
+    # Weekly, so new RustSec advisories show up without a push.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,6 +26,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.97.0
         with:
           components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
         if: runner.os == 'Linux'
       - run: cargo clippy --workspace --all-targets -- -D warnings
@@ -31,6 +38,17 @@ jobs:
           for example in counter text_doc_undo cell_crdt cad_vertex delta_op signed_audit_log event_sourcing_replay; do
             cargo run --quiet -p tpt-operations --all-features --example "$example"
           done
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --workspace --all-features --no-deps
 
   no-std:
     name: no_std build (${{ matrix.target }})
