@@ -60,7 +60,7 @@ Source: `spec.txt`. Tick items as they are finished.
 - [x] Redo is cleared when a new op is applied
 - [x] Batches are treated as a single undo step
 - [x] Tests for eviction ordering and cap boundaries
-- [ ] **Milestone:** `tpt-doc` can integrate multi-level undo/redo (needs the derive macro, Module B, to define real ops)
+- ~~[ ] **Milestone:** `tpt-doc` can integrate multi-level undo/redo (needs the derive macro, Module B, to define real ops)~~ dropped from this scope (2026-10-25)
 
 ## Phase 3 — CRDT Compatibility & Replay (Weeks 6-8)
 ### Module D: `crdt`
@@ -78,10 +78,10 @@ Source: `spec.txt`. Tick items as they are finished.
 - [~] Property test: `state == apply(inverse(state), state)`. Done with 100,000 cases per op type, not millions. `CASES` is the knob.
 - [x] Property test: shuffled application of commutative ops gives an identical state (compared by equality, not by hash yet)
 - [x] Property test: idempotent ops applied twice give an identical state
-- [ ] Property test: associativity for marked ops
+- [x] Property test: associativity for marked ops. `tests/replicate.rs` delivers the same stamped ops whole, one at a time, and in random contiguous batches through the `tpt-replicate` merge executor (pinned to `1203d9e`, dev-dependency). Every grouping must match the author's state. Asserts `IS_ASSOCIATIVE` at compile time. Needs `--features uir`.
 - [~] Golden file: 1,000-op sequence in `tests/golden/replay_1000.bin`, with a pinned state digest. Checked on Windows only. The Linux and macOS check runs in CI once pushed.
 - [x] Build fails if a reversibility test fails (CI gate). The property tests run under `cargo test`, which CI runs on all three OSes.
-- [ ] **Milestone:** `tpt-lattice` and `tpt-vertex` can use these ops for real-time collaboration
+- ~~[ ] **Milestone:** `tpt-lattice` and `tpt-vertex` can use these ops for real-time collaboration~~ dropped from this scope (2026-10-25)
 
 ## Phase 4 — Ecosystem Integration & Crypto (Weeks 9-10)
 - [x] `Signer`/`Verifier`/`Digest` trait boundary (`crypto` feature), with the real `tpt-crypto` adapter (`crypto::tpt`: SHA-256 and Ed25519). Pinned to `tpt-crypto` commit `8b73d9b`. Checked against the FIPS 180 and RFC 8032 vectors.
@@ -89,12 +89,88 @@ Source: `spec.txt`. Tick items as they are finished.
 - [x] `SignedEntry` wrapper with `sign_op` and `verify_entry`. Verification runs before any decoding, and tests cover tampering and wrong keys (toy primitives only).
 - [~] Adapter for the real `tpt-primitives`. `ActorId` ↔ `Principal` is done (`primitives` feature, label `actor:<n>`, canonical form only, pinned to `336292c`). `Capability` is open. Its mint/grant/lease model needs epoch and logical-time context that our `validate` does not have, so it waits for a real caller.
 - [ ] Capability-based `validate`
-- [ ] `tpt-uir` node conversion (`Operation` <-> IR node)
-- [ ] The full action flow: Intent → Create → Validate → Apply → Inverse → Serialize → Sign → Broadcast
-- [ ] End-to-end integration test of the pipeline
-- [ ] Docs for the ecosystem integration points (vertex, lattice, doc, concord)
-- [~] API review, semver audit, changelog. `CHANGELOG.md` (Unreleased) is written. The API review and semver audit are still open, and they should happen before v1.0.0.
+- [x] `tpt-uir` node conversion (`Operation` <-> IR node). `uir` feature: `uir::to_node` and `uir::from_node` over a `UirNode` with the same shape as the `tpt-replicate` stub. The payload is postcard, and decoding rejects truncated input, unknown variants and trailing bytes. Swap in the canonical `tpt-uir` encoding when it exists.
+- [x] The full action flow: Validate → Inverse → Serialize → Sign → Apply (`pipeline::commit`), and Verify → Decode → Validate → Apply on the receiving side (`pipeline::receive`). Broadcast belongs to the transport (`tpt-replicate`). Intent and Create are the caller's op value.
+- [x] End-to-end integration test of the pipeline (`tests/pipeline.rs`): author → peer and author → replay agree; each inverse restores its pre-state; refused ops and tampered or wrong-key entries leave state unchanged
+- [x] Docs for the ecosystem integration points (`docs/integration.md`). `vertex`, `lattice` and `doc` are out of scope, so only replicate, crypto, primitives and concord are covered.
+- [~] API review, semver audit, changelog. `CHANGELOG.md` (Unreleased) is written. Done in the review pass: every public item is documented, and `OpError`, `ReplayError` and `Outcome` are `#[non_exhaustive]`, so new failure kinds can be added later. `cargo doc -D warnings` is clean. There is no published baseline, so a semver diff has nothing to compare against. **Decided (2026-10-25):** (1) Capability validation stays blocked until a real caller exists. Changing `Operation::validate` now is a breaking trait change with nothing to design it against. (2) Keep `ActorId(pub u64)`, which matches `tpt-replicate`, and keep `Capability { pub name }`, a stub the primitives adapter will replace. (3) Pedantic lints (`# Errors`, `#[must_use]`) are not adopted.
 - [ ] Publish `v1.0.0`
+
+## Phase 5 — Review follow-ups (2026-10-25)
+Source: review plan. Bug claims come from code reading. Confirm each with a failing test before fixing.
+
+### Correctness and security (fix first)
+- [ ] Confirm A1-A5 below with failing tests (including partial-apply and failed-rollback cases)
+- [ ] A1: bind the signing key to the `ActorId`. Today `verify_entry` and `pipeline::receive` trust the actor inside the signed bytes, so any key holder can claim any actor (`crypto.rs:269-302`, `pipeline.rs:63-78`)
+- [ ] A2: refuse replayed entries. Add a per-actor sequence number (or Lamport stamp) and a domain-separation tag to the signed payload (`pipeline::receive`)
+- [ ] A3: roll back a failed op's own partial mutation in `OperationBatch::apply` (apply on a clone, or enforce atomic apply by contract). Fix the `replay.rs:170` comment (`compose.rs:69-102`)
+- [ ] A4: a failed rollback must stop replay and `HistoryStack` undo/redo, not be recorded as `Skipped` or re-pushed (`replay.rs:177-184`, `history.rs:147-175`)
+- [ ] A5: decode the format version before the rest of the entry so a future layout gives `UnsupportedVersion`, not `Decode` (`replay.rs:159-168`, `crypto.rs:288-300`)
+- [ ] A6: `LamportClock` saturation at `u64::MAX` (`tick`) and `observe` pinning there: return an error or document it (`crdt.rs:51-61`)
+- [ ] A7: include `digest_version` in the signed bytes, before digest v2 exists (`crypto.rs:234-241`)
+- [ ] A8: `HistoryStack` byte accounting drifts on undo/redo (reuses `step.bytes`), and redo is unbounded (`history.rs:141-168`)
+- [ ] Replace the `expect` in `primitives.rs:17` with a `Result`/`try_` form
+- [ ] Fix the divide-by-zero in `testkit::Rng::range_i64` for the full `i64` range (`testkit.rs:35`)
+- [ ] Refresh the stale "stub" docs in `core/identity.rs`, and note in `lib.rs` that `uir` is a stub and `State::apply` is not atomic
+
+### Missing tests
+- [ ] Partial-apply op, and failed-rollback `Conflict`
+- [ ] Entry replay and actor spoofing through `receive`
+- [ ] `LamportClock` saturation and `observe` with a huge stamp
+- [ ] `HistoryStack`: eviction with redo, `with_limits(0, _)` and `(_, 0)`, a failed `execute` leaves redo intact, failed undo/redo
+- [ ] Replay: trailing garbage, version mismatch with a changed layout, `SkipInvalid` with a partially applying op
+- [ ] A failing `Signer` through `commit`, trailing bytes in `verify_entry`, empty and oversized signatures
+- [ ] `uir` with an empty node
+- [ ] Golden file on Linux and macOS (runs in CI once pushed)
+
+### Adoption quick wins
+- [ ] `tpt_operations::prelude` (`State`, `Operation`, `OpError`, `ActorId`, `OperationBatch`, `tpt_batch!`, `HistoryStack`, `SizeEstimate`, derive when enabled)
+- [ ] `#![doc = include_str!("../README.md")]` so README snippets compile; replace the `ignore` on the `tpt_batch!` example
+- [ ] Features decision table ("I want X, enable Y") in the README
+- [ ] `#[derive(SizeEstimate)]`
+- [ ] Ergonomics: `Display`, `From<u64>` and `Default` for `ActorId`; `IntoIterator`, `Extend`, `From<Vec>` and `into_ops()` for `OperationBatch`; `ReplayEngine::default()`; `HistoryStack::clear()` and peek; take `ActorId` by value consistently
+- [ ] Doc-tests for the main types
+- [ ] README: say `derive` is off by default, and replace the unpublished `version = "0.1"` snippet until the crate is published
+
+### Examples (`examples/`, each runnable with `cargo run --example`, built in CI)
+- [ ] `counter`
+- [ ] `text_doc_undo` (HistoryStack with batches)
+- [ ] `cell_crdt` (Lamport stamps and a convergence check)
+- [ ] `cad_vertex` (promote `tests/move_cad_vertex.rs`)
+- [ ] `signed_audit_log` (commit, receive, tamper detection)
+- [ ] `event_sourcing_replay` (write a log, replay, print the trace)
+- [ ] `delta_op` (hand-written inverse, the Inverse Drift lesson)
+- [ ] `no_std`
+
+### Tooling and templates
+- [ ] Public `testkit` feature: `assert_reversible`, `assert_commutative`, `assert_idempotent`, `assert_replay_deterministic`, with a seeded RNG, shrinking and a diagnostic result (not a bare `bool`). `check_commutative` and `check_idempotent` should say which step failed
+- [ ] `cargo-generate` templates: `state-and-ops`, `collab-ledger`, `audit-log`
+- [ ] `cargo tpt-ops` CLI: `new`, `inspect`, `replay --trace`, `verify`, `check`
+- [ ] Structured `OpError` context (op, field, actor, source) with hints, and `From<postcard::Error>`
+- [ ] Derive: `SizeEstimate`, enum ops, `#[tpt(validate = path)]`, delta fields, generics; the derive error for unsupported shapes says "write the impl by hand"
+- [ ] Benches: replay throughput, sign/verify, history eviction
+- [ ] Docs: concepts guide (mdBook), "why snapshot inverses", "migrating from hand-rolled undo"
+
+### Release hygiene
+- [ ] Publish blockers: git-pinned optional dependencies (`tpt-crypto`, `tpt-primitives`, dev-dep `tpt-replicate`); add a `version` to the derive crate's path dependency
+- [ ] Per-crate `LICENSE-MIT` and `LICENSE-APACHE` (the README links break on crates.io)
+- [ ] `[package.metadata.docs.rs]` (`all-features`, `--cfg docsrs`) and `doc(cfg)` on gated modules
+- [ ] Cargo metadata (`homepage`, `documentation`, `authors`) and `exclude` for `tests/golden` and `tests/ui`; consider `publish = false` until ready
+- [ ] `SECURITY.md`, `CONTRIBUTING.md`, issue and PR templates, README badges
+- [ ] CI: MSRV job, `cargo doc -D warnings`, `cargo semver-checks`, `cargo package --dry-run`, scheduled `cargo-deny` advisories run, Dependabot, `rust-cache`, examples build, `permissions:` and SHA-pinned actions, no_std job for `uir` and `primitives`
+- [ ] `deny.toml`: add `[graph]` targets and advisories settings, and review the license allow-list (`Unicode-DFS-2016`, `Zlib`, `MPL-2.0`, `CC0-1.0`). The `-sys` ban list misses crates that bundle C without that name
+- [ ] Remove the invalid `msrv` key from `rust-toolchain.toml` (the real MSRV is `rust-version` in `Cargo.toml`)
+- [ ] Reconcile `spec.txt` with the code (`inverse` return type, generic `CrdtCompatible`, derive attributes, pipeline order) or mark it historical
+- [ ] Tick the stale "Assumptions" boxes, and fix the `uuid` item (ticked as resolved but not in any `Cargo.toml`)
+- [ ] Commit the untracked work (`docs/`, `pipeline.rs`, `uir.rs`, tests)
+
+### Ideas (post-1.0)
+- [ ] Time-travel debugger over `ReplayTrace`
+- [ ] `#[tpt(test)]` on the derive, generating the reversible, commutative and idempotent property tests
+- [ ] Log compaction and signed snapshot checkpoints (uses digest versioning)
+- [ ] Replay-and-verify against a golden digest as a CI regression gate
+- [ ] Tamper-evident log chaining (each entry commits to the previous digest)
+- [ ] Capability-gated ops once `tpt-primitives` has a real caller (decide the `validate` signature before 1.0)
 
 ## Resolved questions
 - [x] `State` has no merge method. It is a minimal data container with `apply`. Merging belongs to `tpt-replicate`, which uses the CRDT markers.
