@@ -74,7 +74,7 @@ Source: `spec.txt`. Tick items as they are finished.
 - [x] Replay trace output for auditors (`ReplayTrace`, one line per entry via `Display`)
 - [x] Serialized op format with a version tag (`FORMAT_VERSION = 1`, entries are `(version, actor, op)` in postcard)
 ### Testing infrastructure
-- [~] Local stub of `tpt-testkit::property`: `src/testkit.rs` has a seeded xorshift RNG, ranges, and shuffle. No shrinking, no runner.
+- [~] Local stub: `src/testkit.rs` has a seeded xorshift RNG, ranges, and shuffle. No shrinking, no runner. Checked `tpt-testkit::property` (`tpt-solutions/tpt-testkit`): it is proptest strategies for file formats (JSON, CSV, PDF) plus `check_round_trip`. It has no seeded RNG or shuffle, so it is not a drop-in replacement. Keeping the stub. `check_round_trip` could be used for codec round-trip tests later.
 - [~] Property test: `state == apply(inverse(state), state)`. Done with 100,000 cases per op type, not millions. `CASES` is the knob.
 - [x] Property test: shuffled application of commutative ops gives an identical state (compared by equality, not by hash yet)
 - [x] Property test: idempotent ops applied twice give an identical state
