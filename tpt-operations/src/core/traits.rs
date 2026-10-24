@@ -15,6 +15,22 @@ pub trait State: Clone + Sized {
     }
 }
 
+/// A state that can join with another replica's copy directly.
+///
+/// This is opt-in and separate from [`State`]. Most states never merge, and
+/// replication handles them through operations. It exists for CRDT-style
+/// states such as `tpt-lattice` cells, where joining two copies is the only
+/// sync step.
+///
+/// # Contract
+///
+/// `merge` must be a join: commutative, associative and idempotent. Callers
+/// rely on those three properties to converge without coordination.
+pub trait MergeableState: State {
+    /// Joins `other` into `self`.
+    fn merge(&mut self, other: &Self);
+}
+
 /// A reversible mutation of a state of type `S`.
 ///
 /// # Inverse Drift rule
@@ -45,4 +61,43 @@ pub trait Operation<S: State> {
     /// Checks that `actor` may perform this mutation on `state`, without changing
     /// anything.
     fn validate(&self, state: &S, actor: &ActorId) -> Result<(), OpError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MergeableState, State};
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct MaxRegister(u64);
+
+    impl State for MaxRegister {}
+
+    impl MergeableState for MaxRegister {
+        fn merge(&mut self, other: &Self) {
+            self.0 = self.0.max(other.0);
+        }
+    }
+
+    #[test]
+    fn merge_is_commutative_associative_and_idempotent() {
+        let (a, b, c) = (MaxRegister(3), MaxRegister(9), MaxRegister(5));
+
+        let mut ab = a.clone();
+        ab.merge(&b);
+        let mut ba = b.clone();
+        ba.merge(&a);
+        assert_eq!(ab, ba, "commutative");
+
+        let mut ab_c = ab.clone();
+        ab_c.merge(&c);
+        let mut bc = b.clone();
+        bc.merge(&c);
+        let mut a_bc = a.clone();
+        a_bc.merge(&bc);
+        assert_eq!(ab_c, a_bc, "associative");
+
+        let mut twice = ab.clone();
+        twice.merge(&ab);
+        assert_eq!(twice, ab, "idempotent");
+    }
 }

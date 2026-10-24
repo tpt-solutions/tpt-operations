@@ -7,7 +7,7 @@ mod traits;
 
 pub use error::OpError;
 pub use identity::{ActorId, Capability};
-pub use traits::{Operation, State};
+pub use traits::{MergeableState, Operation, State};
 
 #[cfg(test)]
 pub(crate) mod toy;

@@ -29,7 +29,7 @@ Source: `spec.txt`. Tick items as they are finished.
 ### Module A: `core`
 - [x] `OpError` enum (validation, bounds, capability, not-found, conflict, serialization)
 - [x] `State` trait (`Clone + Sized`, `apply` only, no merge)
-- [ ] Optional separate `MergeableState` trait
+- [x] Optional separate `MergeableState` trait
 - [x] `Operation<S>` trait (`apply`, `inverse`, `validate`) with associated `type Inverse`
 - [x] `inverse(&self, &S) -> Result<Self::Inverse, OpError>`, built from the pre-state snapshot
 - [x] Stub `ActorId` and `Capability` (always compiled for now; the `primitives` feature will swap in the real types)
@@ -42,7 +42,7 @@ Source: `spec.txt`. Tick items as they are finished.
 - [x] `#[tpt(ignore)]` for metadata fields (carried by the op and its inverse, never written to state)
 - [x] Snapshot-based inverse generation (no float negation)
 - [x] Compile-fail tests (`trybuild`) for bad attributes: inverse override, missing state, tuple struct, generic, enum, typo'd container attribute
-- [ ] Example: `MoveCadVertex`, with a byte-for-byte round-trip test (`tests/derive.rs` covers the same pattern with a `MoveTo` op, bit-exact on `f32`)
+- [x] Example: `MoveCadVertex`, with a byte-for-byte round-trip test (`tests/move_cad_vertex.rs`)
 - [x] **Milestone:** simple reversible ops with minimal boilerplate (`derive` feature)
 
 ## Phase 2 — History & Batching (Weeks 4-5)
@@ -84,16 +84,16 @@ Source: `spec.txt`. Tick items as they are finished.
 - [ ] **Milestone:** `tpt-lattice` and `tpt-vertex` can use these ops for real-time collaboration
 
 ## Phase 4 — Ecosystem Integration & Crypto (Weeks 9-10)
-- [~] `Signer`/`Verifier`/`Digest` trait boundary (`crypto` feature). Only the traits are done. The real `tpt-crypto` adapter is not.
-- [ ] Hash the canonical `tpt-uir` bytes; postcard is the transmission format only. **Temporary deviation:** the digest currently covers the postcard bytes, because `tpt-uir` doesn't exist yet. Switch the digest input when the `uir` adapter lands, as the resolved question says.
+- [x] `Signer`/`Verifier`/`Digest` trait boundary (`crypto` feature), with the real `tpt-crypto` adapter (`crypto::tpt`: SHA-256 and Ed25519). Pinned to `tpt-crypto` commit `8b73d9b`. Checked against the FIPS 180 and RFC 8032 vectors.
+- [ ] Hash the canonical `tpt-uir` bytes; postcard is the transmission format only. **Temporary deviation:** the digest is SHA-256 over postcard bytes (digest version 1). Each `SignedEntry` records its digest version, so the canonical form lands as version 2 without invalidating existing entries. Blocked on `tpt-uir` defining a canonical encoding; its spec does not yet.
 - [x] `SignedEntry` wrapper with `sign_op` and `verify_entry`. Verification runs before any decoding, and tests cover tampering and wrong keys (toy primitives only).
-- [ ] Adapter for the real `tpt-primitives` (`ActorId`, `Capability`) once available
+- [~] Adapter for the real `tpt-primitives`. `ActorId` ↔ `Principal` is done (`primitives` feature, label `actor:<n>`, canonical form only, pinned to `336292c`). `Capability` is open. Its mint/grant/lease model needs epoch and logical-time context that our `validate` does not have, so it waits for a real caller.
 - [ ] Capability-based `validate`
 - [ ] `tpt-uir` node conversion (`Operation` <-> IR node)
 - [ ] The full action flow: Intent → Create → Validate → Apply → Inverse → Serialize → Sign → Broadcast
 - [ ] End-to-end integration test of the pipeline
 - [ ] Docs for the ecosystem integration points (vertex, lattice, doc, concord)
-- [ ] API review, semver audit, changelog
+- [~] API review, semver audit, changelog. `CHANGELOG.md` (Unreleased) is written. The API review and semver audit are still open, and they should happen before v1.0.0.
 - [ ] Publish `v1.0.0`
 
 ## Resolved questions

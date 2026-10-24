@@ -31,7 +31,14 @@ impl Digest for ToyDigest {
             .to_be_bytes()
             .to_vec()
     }
+
+    fn version(&self) -> u8 {
+        TOY_VERSION
+    }
 }
+
+/// Version tag for the toy digest. Not a real digest version.
+const TOY_VERSION: u8 = 0;
 
 /// Toy keyed signer: `FNV(key || digest)`. Not a MAC. Test-only.
 struct ToySigner {
@@ -109,9 +116,22 @@ fn unsigned_garbage_is_rejected_before_decoding() {
     let signer = ToySigner { key: 42 };
     let entry = tpt_operations::crypto::SignedEntry {
         bytes: vec![0xFF, 0xFF, 0xFF],
+        digest_version: TOY_VERSION,
         signature: vec![0; 8],
     };
     let result: Result<(ActorId, Note), _> = verify_entry(&entry, &ToyDigest, &signer);
     // The signature check runs first, so the error is a validation failure, not a decode failure.
     assert!(matches!(result, Err(OpError::Validation(_))));
+}
+
+#[test]
+fn entry_with_another_digest_version_is_refused_before_checking_the_signature() {
+    let signer = ToySigner { key: 42 };
+    let op = Note { text: "v".into() };
+    let mut entry = sign_op(ActorId(1), &op, &ToyDigest, &signer).unwrap();
+    assert_eq!(entry.digest_version, TOY_VERSION);
+
+    entry.digest_version = TOY_VERSION + 1;
+    let result: Result<(ActorId, Note), _> = verify_entry(&entry, &ToyDigest, &signer);
+    assert!(matches!(result, Err(OpError::Validation(msg)) if msg.contains("digest version")));
 }
