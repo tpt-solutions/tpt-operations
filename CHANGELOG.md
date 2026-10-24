@@ -26,6 +26,17 @@ Nothing is published yet, so there are no released versions.
   Ed25519 signing and verification.
 - `primitives` feature: maps `ActorId` to and from `tpt-primitives`' `Principal`
   using the label `actor:<n>`. Only the canonical form is accepted.
+- `uir` feature: `uir::to_node` and `uir::from_node` convert an operation to and
+  from a `UirNode`. Decoding rejects truncated input, unknown variants and
+  trailing bytes.
+- `pipeline` module (`crypto` feature): `commit` for local operations and
+  `receive` for remote entries. Both apply to a copy of the state and commit
+  only on success.
+- `docs/integration.md`, covering the integration points with the sibling crates.
+
+### Changed
+- `OpError`, `ReplayError` and `Outcome` are `#[non_exhaustive]`.
+- Public fields of `ReplayError` variants are documented.
 
 ### Notes
 - The `uir` adapter is a stub. Digests cover postcard bytes, not canonical
