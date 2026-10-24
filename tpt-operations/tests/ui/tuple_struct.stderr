@@ -1,0 +1,5 @@
+error: Operation requires named fields, or a unit struct
+  --> tests/ui/tuple_struct.rs:10:16
+   |
+10 | pub struct Pair(i64, i64);
+   |                ^^^^^^^^^^

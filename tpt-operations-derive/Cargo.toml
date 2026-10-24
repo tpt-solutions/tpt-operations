@@ -1,0 +1,17 @@
+[package]
+name = "tpt-operations-derive"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Derive macros for tpt-operations."
+
+[lib]
+proc-macro = true
+
+[lints]
+workspace = true
+
+[dependencies]
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+syn = { version = "3.0.9", features = ["full", "extra-traits"] }

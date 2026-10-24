@@ -10,12 +10,14 @@ applied, and inverted for undo. See [`spec.txt`](spec.txt) for the design and
 | Crate | Purpose |
 | --- | --- |
 | `tpt-operations` | Core library (`no_std` + `alloc`). |
+| `tpt-operations-derive` | Proc-macro crate for `#[derive(Operation)]`. |
 
 ## Features
 
 | Feature | Default | Effect |
 | --- | --- | --- |
 | `std` | no | Enables `std::error::Error` for `OpError`. |
+| `derive` | no | Re-exports the derive macro. |
 | `uir`, `crypto`, `primitives` | no | Adapter slots for `tpt-uir`, `tpt-crypto`, `tpt-primitives`. Stubbed until those crates are wired in. |
 
 ## Rules

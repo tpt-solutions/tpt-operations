@@ -1,0 +1,5 @@
+error: inverse overrides are not supported: inverses are snapshots of the pre-state
+  --> tests/ui/inverse_attribute.rs:11:11
+   |
+11 |     #[tpt(inverse = "Add { amount: -self.value }")]
+   |           ^^^^^^^

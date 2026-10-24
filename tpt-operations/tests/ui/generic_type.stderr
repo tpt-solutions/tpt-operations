@@ -1,0 +1,5 @@
+error: Operation cannot be derived for generic types yet
+  --> tests/ui/generic_type.rs:10:19
+   |
+10 | pub struct Generic<T> {
+   |                   ^^^

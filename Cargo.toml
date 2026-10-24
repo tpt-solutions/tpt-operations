@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["tpt-operations"]
+members = ["tpt-operations", "tpt-operations-derive"]
 
 [workspace.package]
 version = "0.1.0"

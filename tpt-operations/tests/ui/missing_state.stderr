@@ -1,0 +1,5 @@
+error: missing `#[tpt(state = Type)]` attribute for `Operation`
+ --> tests/ui/missing_state.rs:4:12
+  |
+4 | pub struct Orphan {
+  |            ^^^^^^

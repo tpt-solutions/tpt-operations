@@ -9,6 +9,8 @@ description = "Deterministic, reversible, CRDT-compatible operation engine for t
 default = []
 # Enables the std-only conveniences (e.g. `std::error::Error` for `OpError`).
 std = []
+# Re-exports the `#[derive(Operation)]` macro.
+derive = ["dep:tpt-operations-derive"]
 # Real tpt-uir adapter (stubbed for now).
 uir = []
 # Real tpt-crypto adapter (stubbed for now).
@@ -16,5 +18,11 @@ crypto = []
 # Real tpt-primitives adapter for ActorId / Capability (stubbed for now).
 primitives = []
 
+[dependencies]
+tpt-operations-derive = { path = "../tpt-operations-derive", optional = true }
+
 [lints]
 workspace = true
+
+[dev-dependencies]
+trybuild = "1.0.122"

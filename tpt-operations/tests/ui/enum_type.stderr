@@ -1,0 +1,5 @@
+error: Operation can only be derived for structs
+  --> tests/ui/enum_type.rs:10:10
+   |
+10 | pub enum Either {
+   |          ^^^^^^

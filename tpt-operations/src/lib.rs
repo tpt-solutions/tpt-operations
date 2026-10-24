@@ -16,6 +16,12 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+// Lets `::tpt_operations::...` paths emitted by the derive resolve inside this crate too.
+extern crate self as tpt_operations;
+
+#[cfg(feature = "derive")]
+pub use tpt_operations_derive::Operation;
+
 pub mod compose;
 pub mod core;
 pub mod crdt;
