@@ -16,4 +16,12 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod compose;
 pub mod core;
+pub mod crdt;
+pub mod history;
+
+#[cfg(test)]
+mod property_tests;
+#[cfg(test)]
+mod testkit;
