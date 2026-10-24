@@ -1,0 +1,20 @@
+[package]
+name = "tpt-operations"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Deterministic, reversible, CRDT-compatible operation engine for the TPT stack."
+
+[features]
+default = []
+# Enables the std-only conveniences (e.g. `std::error::Error` for `OpError`).
+std = []
+# Real tpt-uir adapter (stubbed for now).
+uir = []
+# Real tpt-crypto adapter (stubbed for now).
+crypto = []
+# Real tpt-primitives adapter for ActorId / Capability (stubbed for now).
+primitives = []
+
+[lints]
+workspace = true
