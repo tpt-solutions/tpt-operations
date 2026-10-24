@@ -12,6 +12,14 @@ are left out.
   undo. Nothing is signed or applied unless validation and the inverse succeed.
 - **Remote:** `pipeline::receive` runs Verify, Decode, Validate and Apply. The
   signature is checked before anything is decoded.
+- **Author binding:** a signature proves that a key signed the entry, not that
+  the key belongs to the actor named inside it. `receive` takes the `author`
+  that the verifier's key belongs to and refuses an entry that claims another
+  actor. Keep the key-to-actor registry on your side.
+- **Replay protection:** each author numbers their entries with a rising `seq`,
+  which is covered by the signature. `receive` keeps the highest accepted `seq`
+  per author in a `ReplayGuard` and refuses anything not above it. The guard
+  only advances when an entry applies. Deliver each author's entries in order.
 - **Broadcast:** not part of this crate. Pass the `SignedEntry` to the
   transport layer.
 
@@ -31,8 +39,8 @@ are left out.
 - `crypto::Digest`, `crypto::Signer` and `crypto::Verifier` are the boundary.
   `crypto::tpt` holds the SHA-256 and Ed25519 adapters.
 - Each `SignedEntry` records its digest version. A verifier refuses a version
-  it does not support. Digest version 1 covers the postcard entry, not the
-  canonical `tpt-uir` form. That change is blocked until `tpt-uir` defines a
+  it does not support. Digest version 1 covers the postcard entry (with a domain
+  tag, the digest version and `seq`), not the canonical `tpt-uir` form. That change is blocked until `tpt-uir` defines a
   canonical encoding.
 
 ## `tpt-primitives` (`primitives` feature)

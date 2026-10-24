@@ -35,6 +35,24 @@ Nothing is published yet, so there are no released versions.
 - `docs/integration.md`, covering the integration points with the sibling crates.
 
 ### Changed
+- `OperationBatch::apply` runs on a copy of the state and replaces the state only
+  if every operation succeeds. A failing `apply` that had already changed part of
+  a state no longer leaks that change, and rollback (with its `Conflict` error)
+  is gone. The cost is one state clone per batch.
+- `pipeline::commit` takes a `seq`, and `pipeline::receive` takes the expected
+  `author`, a `ReplayGuard` and no longer returns the actor. `crypto::sign_op`
+  takes a `seq`, and `SignedEntry` has a `seq` field.
+- The signature covers a domain tag, the digest version, `seq` and the entry
+  bytes, not only the entry bytes. `receive` refuses an entry that claims an
+  actor other than the key's owner, and one whose `seq` is not above the last
+  accepted from that author.
+- The format version is decoded before the rest of an entry, so a newer layout
+  reports `UnsupportedVersion` instead of a decode error.
+- `LamportClock::tick` returns `Result` and errors when the counter is exhausted,
+  instead of saturating and repeating a stamp.
+- `primitives::principal_of` returns `Result` instead of calling `expect`.
+- `HistoryStack` measures each step from the batch it stores, so `undo_bytes`
+  stays accurate across undo and redo.
 - `OpError`, `ReplayError` and `Outcome` are `#[non_exhaustive]`.
 - Public fields of `ReplayError` variants are documented.
 

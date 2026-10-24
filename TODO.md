@@ -100,26 +100,26 @@ Source: `spec.txt`. Tick items as they are finished.
 Source: review plan. Bug claims come from code reading. Confirm each with a failing test before fixing.
 
 ### Correctness and security (fix first)
-- [ ] Confirm A1-A5 below with failing tests (including partial-apply and failed-rollback cases)
-- [ ] A1: bind the signing key to the `ActorId`. Today `verify_entry` and `pipeline::receive` trust the actor inside the signed bytes, so any key holder can claim any actor (`crypto.rs:269-302`, `pipeline.rs:63-78`)
-- [ ] A2: refuse replayed entries. Add a per-actor sequence number (or Lamport stamp) and a domain-separation tag to the signed payload (`pipeline::receive`)
-- [ ] A3: roll back a failed op's own partial mutation in `OperationBatch::apply` (apply on a clone, or enforce atomic apply by contract). Fix the `replay.rs:170` comment (`compose.rs:69-102`)
-- [ ] A4: a failed rollback must stop replay and `HistoryStack` undo/redo, not be recorded as `Skipped` or re-pushed (`replay.rs:177-184`, `history.rs:147-175`)
-- [ ] A5: decode the format version before the rest of the entry so a future layout gives `UnsupportedVersion`, not `Decode` (`replay.rs:159-168`, `crypto.rs:288-300`)
-- [ ] A6: `LamportClock` saturation at `u64::MAX` (`tick`) and `observe` pinning there: return an error or document it (`crdt.rs:51-61`)
-- [ ] A7: include `digest_version` in the signed bytes, before digest v2 exists (`crypto.rs:234-241`)
-- [ ] A8: `HistoryStack` byte accounting drifts on undo/redo (reuses `step.bytes`), and redo is unbounded (`history.rs:141-168`)
-- [ ] Replace the `expect` in `primitives.rs:17` with a `Result`/`try_` form
-- [ ] Fix the divide-by-zero in `testkit::Rng::range_i64` for the full `i64` range (`testkit.rs:35`)
-- [ ] Refresh the stale "stub" docs in `core/identity.rs`, and note in `lib.rs` that `uir` is a stub and `State::apply` is not atomic
+- [x] Confirm A1-A5 below with tests (partial-apply, spoofing, replay, version order). Written alongside the fixes, not as separate failing commits.
+- [x] A1: bind the signing key to the `ActorId`. Today `verify_entry` and `pipeline::receive` trust the actor inside the signed bytes, so any key holder can claim any actor `pipeline::receive` now takes the expected `author` and refuses a different claimed actor.
+- [x] A2: refuse replayed entries. `SignedEntry.seq` is signed with a domain tag, and `ReplayGuard` keeps the highest accepted `seq` per author.
+- [x] A3: roll back a failed op's own partial mutation in `OperationBatch::apply` Done by applying on a clone (one state clone per batch).
+- [x] A4: a failed rollback can no longer happen. Batches work on a clone, so there is no rollback, and a failed undo/redo leaves the state untouched.
+- [x] A5: decode the format version before the rest of the entry so a future layout gives `UnsupportedVersion`, not `Decode`.
+- [x] A6: `LamportClock::tick` returns `Result` and errors once the counter is exhausted.
+- [x] A7: `digest_version` is part of the signing input.
+- [x] A8: `HistoryStack` measures each stored batch. Redo is not capped on purpose: it only holds undone steps, so it cannot outgrow the undo history.
+- [x] Replace the `expect` in `primitives.rs` (`principal_of` returns `Result`)
+- [x] Fix the divide-by-zero in `testkit::Rng::range_i64` for the full `i64` range
+- [~] Stale "stub" docs in `core/identity.rs` refreshed. Still open: note in `lib.rs` that `uir` is a stub
 
 ### Missing tests
-- [ ] Partial-apply op, and failed-rollback `Conflict`
-- [ ] Entry replay and actor spoofing through `receive`
-- [ ] `LamportClock` saturation and `observe` with a huge stamp
-- [ ] `HistoryStack`: eviction with redo, `with_limits(0, _)` and `(_, 0)`, a failed `execute` leaves redo intact, failed undo/redo
-- [ ] Replay: trailing garbage, version mismatch with a changed layout, `SkipInvalid` with a partially applying op
-- [ ] A failing `Signer` through `commit`, trailing bytes in `verify_entry`, empty and oversized signatures
+- [x] Partial-apply op (the failed-rollback `Conflict` path no longer exists)
+- [x] Entry replay and actor spoofing through `receive`
+- [x] `LamportClock` exhaustion after `observe` with a huge stamp
+- [~] `HistoryStack`: zero limits, a failed `execute` leaves redo intact, failed undo/redo, and byte accounting are done. Eviction with redo is open.
+- [x] Replay: trailing garbage and a version mismatch with a changed layout (a partially applying op is covered by the batch tests)
+- [~] A failing `Signer` through `commit` is done. Trailing bytes in `verify_entry` and empty or oversized signatures are open.
 - [ ] `uir` with an empty node
 - [ ] Golden file on Linux and macOS (runs in CI once pushed)
 
