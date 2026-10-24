@@ -1,4 +1,4 @@
-error: Operation requires named fields, or a unit struct
+error: Operation requires named fields, or a unit struct; for a tuple struct, name the fields or write the `Operation` impl by hand
   --> tests/ui/tuple_struct.rs:10:16
    |
 10 | pub struct Pair(i64, i64);

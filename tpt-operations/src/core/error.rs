@@ -36,5 +36,12 @@ impl fmt::Display for OpError {
     }
 }
 
+#[cfg(feature = "serde")]
+impl From<postcard::Error> for OpError {
+    fn from(error: postcard::Error) -> Self {
+        OpError::Serialization(alloc::format!("{error}"))
+    }
+}
+
 #[cfg(feature = "std")]
 impl std::error::Error for OpError {}

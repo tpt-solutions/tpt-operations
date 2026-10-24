@@ -37,6 +37,36 @@ struct Step<O> {
 
 /// Bounded undo/redo history for operations of type `O`.
 ///
+/// ```
+/// use tpt_operations::prelude::*;
+///
+/// # #[derive(Clone, Default)] struct Counter(i64);
+/// # impl State for Counter {}
+/// # #[derive(Clone)] struct Set(i64);
+/// # impl Operation<Counter> for Set {
+/// #     type Inverse = Set;
+/// #     fn apply(&self, s: &mut Counter) -> Result<(), OpError> { s.0 = self.0; Ok(()) }
+/// #     fn inverse(&self, s: &Counter) -> Result<Set, OpError> { Ok(Set(s.0)) }
+/// #     fn validate(&self, _: &Counter, _: &ActorId) -> Result<(), OpError> { Ok(()) }
+/// # }
+/// # impl SizeEstimate for Set { fn estimated_size(&self) -> usize { 8 } }
+/// let me = ActorId(1);
+/// let mut state = Counter::default();
+/// // Keep at most two steps, and 1 MB of operations.
+/// let mut history = HistoryStack::with_limits(2, 1 << 20);
+///
+/// for n in 1..=3 {
+///     history.execute(&mut state, &tpt_batch![Set(n)], &me)?;
+/// }
+/// // The oldest step was evicted, so only two undos are left.
+/// assert_eq!(history.undo_len(), 2);
+///
+/// assert!(history.next_undo().is_some()); // what undo would apply
+/// while history.undo(&mut state, &me)? {}
+/// assert_eq!(state.0, 1);
+/// # Ok::<(), OpError>(())
+/// ```
+///
 /// Eviction removes the oldest undo steps first. Redo steps are not counted
 /// toward the caps. They only come from steps that were undone, so they never
 /// outgrow the undo history.
@@ -79,6 +109,19 @@ impl<O> HistoryStack<O> {
     /// Estimated bytes held by the undo steps.
     pub fn undo_bytes(&self) -> usize {
         self.undo_bytes
+    }
+
+    /// The batch that [`HistoryStack::undo`] would apply next, if any.
+    ///
+    /// It is the inverse of the step being undone, so a UI can show what undo
+    /// will do.
+    pub fn next_undo(&self) -> Option<&OperationBatch<O>> {
+        self.undo.back().map(|step| &step.batch)
+    }
+
+    /// The batch that [`HistoryStack::redo`] would apply next, if any.
+    pub fn next_redo(&self) -> Option<&OperationBatch<O>> {
+        self.redo.last().map(|step| &step.batch)
     }
 
     /// Forgets all undo and redo steps. The state is not touched.
@@ -249,6 +292,23 @@ mod tests {
 
         assert!(history.redo(&mut state, &actor()).unwrap());
         assert_eq!(state.value, 5);
+    }
+
+    #[test]
+    fn next_undo_and_next_redo_show_the_pending_batches_without_applying_them() {
+        let mut history = HistoryStack::new();
+        let mut state = Counter { value: 0 };
+        assert!(history.next_undo().is_none() && history.next_redo().is_none());
+
+        history.execute(&mut state, &add(5), &actor()).unwrap();
+        // The pending undo is the inverse: a snapshot of the old value.
+        let pending = history.next_undo().unwrap();
+        assert_eq!(pending.ops(), [CounterOp::Set(0)]);
+        assert_eq!(state.value, 5);
+
+        history.undo(&mut state, &actor()).unwrap();
+        assert!(history.next_undo().is_none());
+        assert_eq!(history.next_redo().unwrap().ops(), [CounterOp::Set(5)]);
     }
 
     #[test]

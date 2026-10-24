@@ -1,4 +1,4 @@
-error: Operation can only be derived for structs
+error: Operation can only be derived for structs; for an enum, write the `Operation` impl by hand (see the `text_doc_undo` example)
   --> tests/ui/enum_type.rs:10:10
    |
 10 | pub enum Either {

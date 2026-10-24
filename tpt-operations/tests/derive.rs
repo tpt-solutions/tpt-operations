@@ -190,3 +190,51 @@ fn derived_size_estimate_is_the_inline_size_for_structs_enums_and_generics() {
     assert_eq!(Shape::Dot.estimated_size(), core::mem::size_of::<Shape>());
     assert!(Shape::Line(1.0, 2.0).estimated_size() >= 16);
 }
+
+mod validate_hook {
+    use tpt_operations::{
+        core::{ActorId, OpError, Operation as _, State},
+        Operation,
+    };
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct Gauge {
+        level: i64,
+    }
+
+    impl State for Gauge {}
+
+    fn within_limits(op: &SetLevel, _state: &Gauge, actor: &ActorId) -> Result<(), OpError> {
+        if actor.0 == 0 {
+            return Err(OpError::Capability("actor 0 is read-only".into()));
+        }
+        if !(0..=100).contains(&op.level) {
+            return Err(OpError::Bounds(format!(
+                "level {} is out of range",
+                op.level
+            )));
+        }
+        Ok(())
+    }
+
+    #[derive(Debug, Clone, Operation)]
+    #[tpt(state = Gauge, validate = within_limits)]
+    struct SetLevel {
+        level: i64,
+    }
+
+    #[test]
+    fn derived_validate_calls_the_named_function() {
+        let gauge = Gauge { level: 0 };
+        let ok = SetLevel { level: 50 };
+        assert!(ok.validate(&gauge, &ActorId(1)).is_ok());
+        assert!(matches!(
+            ok.validate(&gauge, &ActorId(0)),
+            Err(OpError::Capability(_))
+        ));
+        assert!(matches!(
+            SetLevel { level: 101 }.validate(&gauge, &ActorId(1)),
+            Err(OpError::Bounds(_))
+        ));
+    }
+}

@@ -16,7 +16,9 @@
 //! - `apply` writes each non-ignored field into the state field of the same name.
 //! - `inverse` snapshots the pre-application state values into a new `Self`.
 //!   Inverses are never written as expressions, so they cannot drift.
-//! - `validate` accepts every operation. Override it by writing the trait impl by hand.
+//! - `validate` accepts every operation by default. `#[tpt(validate = path)]` calls
+//!   `path(&self, &state, &actor)` instead, where `path` is a function returning
+//!   `Result<(), OpError>`. To change more than that, write the trait impl by hand.
 //! - `Inverse` is `Self`.
 //! - `#[derive(SizeEstimate)]` implements `history::SizeEstimate` as the inline size
 //!   of the type, for the `HistoryStack` memory cap.
@@ -29,7 +31,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Error, Fields, Ident, Result, Type};
+use syn::{parse_macro_input, Data, DeriveInput, Error, Fields, Ident, Path, Result, Type};
 
 /// Derives `Operation` for a struct. See the crate docs for the rules.
 #[proc_macro_derive(Operation, attributes(tpt))]
@@ -49,11 +51,11 @@ fn expand(input: &DeriveInput) -> Result<TokenStream2> {
     if !input.generics.params.is_empty() {
         return Err(Error::new_spanned(
             &input.generics,
-            "Operation cannot be derived for generic types yet",
+            "Operation cannot be derived for generic types yet; write the `Operation` impl by hand",
         ));
     }
 
-    let (state, markers) = container_attrs(input)?;
+    let (state, markers, validate) = container_attrs(input)?;
     let Markers {
         commutative,
         associative,
@@ -82,6 +84,11 @@ fn expand(input: &DeriveInput) -> Result<TokenStream2> {
         quote! { Self { #( #snapshot_names: #snapshot_values, )* } }
     };
 
+    let validate_body = match validate {
+        Some(path) => quote! { #path(self, _state, _actor) },
+        None => quote! { ::core::result::Result::Ok(()) },
+    };
+
     Ok(quote! {
         #[allow(unused_variables)]
         impl ::tpt_operations::core::Operation<#state> for #name {
@@ -107,7 +114,7 @@ fn expand(input: &DeriveInput) -> Result<TokenStream2> {
                 _state: &#state,
                 _actor: &::tpt_operations::core::ActorId,
             ) -> ::core::result::Result<(), ::tpt_operations::core::OpError> {
-                ::core::result::Result::Ok(())
+                #validate_body
             }
         }
 
@@ -150,15 +157,21 @@ struct Markers {
     idempotent: bool,
 }
 
-/// Reads the container attributes: the required `state = Type` and the optional CRDT flags.
-fn container_attrs(input: &DeriveInput) -> Result<(Type, Markers)> {
+/// Reads the container attributes: the required `state = Type`, the optional CRDT flags and
+/// the optional `validate = path`.
+fn container_attrs(input: &DeriveInput) -> Result<(Type, Markers, Option<Path>)> {
     let mut state = None;
+    let mut validate = None;
     let mut markers = Markers::default();
     for attr in input.attrs.iter().filter(|a| a.path().is_ident("tpt")) {
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("state") {
                 let ty: Type = meta.value()?.parse()?;
                 state = Some(ty);
+                Ok(())
+            } else if meta.path.is_ident("validate") {
+                let path: Path = meta.value()?.parse()?;
+                validate = Some(path);
                 Ok(())
             } else if meta.path.is_ident("commutative") {
                 markers.commutative = true;
@@ -171,7 +184,7 @@ fn container_attrs(input: &DeriveInput) -> Result<(Type, Markers)> {
                 Ok(())
             } else {
                 Err(meta.error(
-                    "unknown container attribute; expected `state = Type`, `commutative`, `associative` or `idempotent`",
+                    "unknown container attribute; expected `state = Type`, `validate = path`, `commutative`, `associative` or `idempotent`",
                 ))
             }
         })?;
@@ -182,7 +195,7 @@ fn container_attrs(input: &DeriveInput) -> Result<(Type, Markers)> {
             "missing `#[tpt(state = Type)]` attribute for `Operation`",
         )
     })?;
-    Ok((state, markers))
+    Ok((state, markers, validate))
 }
 
 /// Returns whether the struct is a unit struct, plus its fields in declaration order.
@@ -192,7 +205,7 @@ fn struct_fields(input: &DeriveInput) -> Result<(bool, Vec<Field>)> {
         _ => {
             return Err(Error::new_spanned(
                 &input.ident,
-                "Operation can only be derived for structs",
+                "Operation can only be derived for structs; for an enum, write the `Operation` impl by hand (see the `text_doc_undo` example)",
             ))
         }
     };
@@ -214,7 +227,7 @@ fn struct_fields(input: &DeriveInput) -> Result<(bool, Vec<Field>)> {
         }
         Fields::Unnamed(_) => Err(Error::new_spanned(
             &data.fields,
-            "Operation requires named fields, or a unit struct",
+            "Operation requires named fields, or a unit struct; for a tuple struct, name the fields or write the `Operation` impl by hand",
         )),
     }
 }

@@ -60,6 +60,11 @@ required-features = ["crypto"]
 name = "event_sourcing_replay"
 required-features = ["serde"]
 
+[[bench]]
+name = "throughput"
+harness = false
+required-features = ["crypto"]
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

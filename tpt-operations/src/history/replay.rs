@@ -130,6 +130,37 @@ pub fn encode_entry<O: Serialize>(
 }
 
 /// Rebuilds states from operation logs.
+///
+/// ```
+/// use serde::{Deserialize, Serialize};
+/// use tpt_operations::{
+///     history::{replay::encode_entry, ReplayEngine, ReplayPolicy},
+///     prelude::*,
+/// };
+///
+/// #[derive(Clone, Debug, Default, PartialEq)]
+/// struct Counter(i64);
+/// impl State for Counter {}
+///
+/// #[derive(Clone, Debug, Serialize, Deserialize)]
+/// struct Set(i64);
+/// impl Operation<Counter> for Set {
+///     type Inverse = Set;
+///     fn apply(&self, s: &mut Counter) -> Result<(), OpError> { s.0 = self.0; Ok(()) }
+///     fn inverse(&self, s: &Counter) -> Result<Set, OpError> { Ok(Set(s.0)) }
+///     fn validate(&self, _: &Counter, _: &ActorId) -> Result<(), OpError> { Ok(()) }
+/// }
+///
+/// let mut log = Vec::new();
+/// encode_entry(ActorId(1), &Set(4), &mut log).unwrap();
+/// encode_entry(ActorId(2), &Set(9), &mut log).unwrap();
+///
+/// let (state, trace) = ReplayEngine::default()
+///     .replay::<Counter, Set>(Counter(0), &log)
+///     .unwrap();
+/// assert_eq!(state, Counter(9));
+/// assert_eq!(trace.entries.len(), 2);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReplayEngine {
     policy: ReplayPolicy,

@@ -67,3 +67,9 @@ fn empty_node_is_rejected() {
         Err(OpError::Serialization(_))
     ));
 }
+
+#[test]
+fn postcard_errors_convert_to_serialization_errors() {
+    let error = postcard::from_bytes::<CounterOp>(&[]).unwrap_err();
+    assert!(matches!(OpError::from(error), OpError::Serialization(_)));
+}

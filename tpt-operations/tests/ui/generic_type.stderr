@@ -1,4 +1,4 @@
-error: Operation cannot be derived for generic types yet
+error: Operation cannot be derived for generic types yet; write the `Operation` impl by hand
   --> tests/ui/generic_type.rs:10:19
    |
 10 | pub struct Generic<T> {
