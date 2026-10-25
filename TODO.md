@@ -22,7 +22,7 @@ Source: `spec.txt`. Tick items as they are finished.
 - [x] Create the `tpt-operations-derive` proc-macro crate
 - [x] Add `rust-toolchain.toml`, `rustfmt.toml`, clippy config (`clippy.toml`, workspace lints)
 - [x] Add `deny.toml` (ban C-FFI / `-sys` crates; explicit list because cargo-deny has no wildcards)
-- [~] CI: `.github/workflows/ci.yml` written (test matrix, no_std targets, cargo-deny). Not yet run on GitHub. `no_std` builds verified locally for `thumbv7em-none-eabihf`, `riscv32imac-unknown-none-elf` and `wasm32-unknown-unknown`.
+- [x] CI: `.github/workflows/ci.yml` (test matrix, no_std targets, cargo-deny, docs, examples, template). Green on GitHub (2026-10-25). `no_std` builds verified locally for `thumbv7em-none-eabihf`, `riscv32imac-unknown-none-elf` and `wasm32-unknown-unknown`.
 - [x] README and crate-level docs
 
 ## Phase 1 — Core Traits & Derive Macros (Weeks 1-3)
@@ -79,7 +79,7 @@ Source: `spec.txt`. Tick items as they are finished.
 - [x] Property test: shuffled application of commutative ops gives an identical state (compared by equality, not by hash yet)
 - [x] Property test: idempotent ops applied twice give an identical state
 - [x] Property test: associativity for marked ops. `tests/replicate.rs` delivers the same stamped ops whole, one at a time, and in random contiguous batches through the `tpt-replicate` merge executor (pinned to `1203d9e`, dev-dependency). Every grouping must match the author's state. Asserts `IS_ASSOCIATIVE` at compile time. Needs `--features uir`.
-- [~] Golden file: 1,000-op sequence in `tests/golden/replay_1000.bin`, with a pinned state digest. Checked on Windows only. The Linux and macOS check runs in CI once pushed.
+- [x] Golden file: 1,000-op sequence in `tests/golden/replay_1000.bin`, with a pinned state digest. Passes on Windows, Linux and macOS (CI green, 2026-10-25).
 - [x] Build fails if a reversibility test fails (CI gate). The property tests run under `cargo test`, which CI runs on all three OSes.
 - ~~[ ] **Milestone:** `tpt-lattice` and `tpt-vertex` can use these ops for real-time collaboration~~ dropped from this scope (2026-10-25)
 
@@ -121,7 +121,7 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [x] Replay: trailing garbage and a version mismatch with a changed layout (a partially applying op is covered by the batch tests)
 - [x] A failing `Signer` through `commit`, trailing bytes in `verify_entry`, and empty, short and oversized signatures
 - [x] `uir` with an empty node
-- [ ] Golden file on Linux and macOS (runs in CI once pushed)
+- [x] Golden file on Linux and macOS (CI green)
 
 ### Adoption quick wins
 - [x] `tpt_operations::prelude` (`State`, `Operation`, `OpError`, `ActorId`, `OperationBatch`, `tpt_batch!`, `HistoryStack`, `SizeEstimate`, derive when enabled)
@@ -157,7 +157,7 @@ Source: review plan. Bug claims come from code reading. Confirm each with a fail
 - [x] `[package.metadata.docs.rs]` (`all-features`, `--cfg docsrs`) and `doc(cfg)` on gated modules. Not checked on nightly
 - [x] Cargo metadata (`homepage`) and `exclude` for `tests/golden` and `tests/ui`, and `publish = false` until ready. No `authors`, `documentation` defaults to docs.rs
 - [x] `SECURITY.md`, `CONTRIBUTING.md`, issue and PR templates, README badges. `SECURITY.md` points at GitHub private vulnerability reporting, so enable that in the repo settings
-- [~] CI: done are the examples run, the no_std job for `uir` and `derive`, a `cargo doc -D warnings` job, a weekly schedule (for `cargo-deny` advisories), `permissions: contents: read`, `rust-cache`, and Dependabot. None has run on GitHub yet. `primitives` cannot be built for bare-metal targets, because `tpt-primitives` pulls in `std` crates. There is no separate MSRV job: `rust-version` equals the pinned toolchain, so add one when they differ. Open: `cargo semver-checks` (needs a published baseline), `cargo package --dry-run` in CI (blocked by the git dependencies), SHA-pinned actions
+- [~] CI: green on GitHub. Done are the examples run, the no_std job for `uir` and `derive`, a `cargo doc -D warnings` job, a weekly schedule (for `cargo-deny` advisories), `permissions: contents: read`, `rust-cache`, and Dependabot. `primitives` cannot be built for bare-metal targets, because `tpt-primitives` pulls in `std` crates. There is no separate MSRV job: `rust-version` equals the pinned toolchain, so add one when they differ. Open: `cargo semver-checks` (needs a published baseline), `cargo package --dry-run` in CI (blocked by the git dependencies), SHA-pinned actions
 - [x] `deny.toml`: `[graph] all-features`, `unmaintained = "workspace"`, and `Zlib` and `CC0-1.0` allowed. `cargo deny check` passes locally. Still true: the `-sys` ban list misses crates that bundle C without that name. The git dependencies needed a `version` to pass the wildcard ban
 - [x] `rust-toolchain.toml` has no `msrv` key (checked). The MSRV is `rust-version` in `Cargo.toml`
 - [x] `spec.txt` has a banner listing where the code differs. The body is left as the original design
